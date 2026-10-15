@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaymentG — Binance Pay Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        binance: {
+                            yellow: '#F3BA2F',
+                            yellowHover: '#DCA219',
+                            dark: '#0B0E11',
+                            card: '#181A20',
+                            border: '#2B313A',
+                            text: '#EAECEF',
+                            muted: '#848E9C'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0B0E11; color: #EAECEF; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .tab-active { border-bottom: 2px solid #F3BA2F; color: #F3BA2F; font-weight: 600; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Modal Login PIN -->
+    <div id="pinModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-binance-yellow/10 text-binance-yellow mb-3">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-white">PaymentG Binance</h2>
+                <p class="text-xs text-binance-muted mt-1">Masukkan PIN Admin untuk mengakses dashboard</p>
+            </div>
+            <form id="pinForm" onsubmit="handlePinLogin(event)">
+                <div class="mb-4">
+                    <input type="password" id="pinInput" placeholder="Masukkan PIN Admin" maxlength="10"
+                        class="w-full text-center text-2xl tracking-widest bg-binance-dark border border-binance-border rounded-lg py-3 text-white focus:outline-none focus:border-binance-yellow transition" autofocus>
+                    <p id="pinError" class="text-xs text-red-500 mt-2 text-center hidden"></p>
+                </div>
+                <button type="submit" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold py-2.5 rounded-lg transition">
+                    Buka Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Navigasi -->
+    <header class="border-b border-binance-border bg-binance-card sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-binance-yellow flex items-center justify-center font-bold text-black text-sm">
+                    ⚡
+                </div>
+                <div>
+                    <h1 class="font-bold text-white leading-tight">PaymentG <span class="text-binance-yellow text-xs px-2 py-0.5 rounded bg-binance-yellow/10 border border-binance-yellow/20 ml-1">Binance Pay Edition</span></h1>
+                    <p class="text-[11px] text-binance-muted">Personal SAPI Smart Poller & Auto-Webhook</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="/sandbox/" target="_blank" class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition flex items-center gap-1.5">
+                    <span>🧪</span> Buka Sandbox Simulator
+                </a>
+                <button onclick="handleLogout()" class="text-xs text-binance-muted hover:text-white px-3 py-1.5 rounded-lg border border-binance-border hover:bg-binance-dark transition">
+                    Keluar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Konten Dashboard -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+        <!-- 4 Kartu Statistik -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Total Omset Sukses</p>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="statOmset" class="text-2xl font-bold text-binance-yellow">0.000</span>
+                    <span class="text-xs text-binance-muted">USDT</span>
+                </div>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Tagihan Lunas (PAID)</p>
+                <p id="statPaid" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Menunggu Pembayaran</p>
+                <p id="statPending" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Mutasi Tak Dikenal</p>
+                <p id="statUnmatched" class="text-2xl font-bold text-rose-400 mt-1">0</p>
+            </div>
+        </div>
+
+        <!-- Tab Navigasi -->
+        <div class="flex border-b border-binance-border gap-6 text-sm mb-6">
+            <button onclick="switchTab('tabOrders')" id="navOrders" class="pb-3 tab-active transition">Riwayat Transaksi Live</button>
+            <button onclick="switchTab('tabApps')" id="navApps" class="pb-3 text-binance-muted hover:text-white transition">Kelola Toko (Apps)</button>
+            <button onclick="switchTab('tabConfig')" id="navConfig" class="pb-3 text-binance-muted hover:text-white transition">Pengaturan Binance Pay</button>
+            <button onclick="switchTab('tabUnmatched')" id="navUnmatched" class="pb-3 text-binance-muted hover:text-white transition">Mutasi Tak Dikenal</button>
+        </div>
+
+        <!-- TAB 1: Transaksi Live -->
+        <div id="tabOrders">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-white text-sm">Daftar Transaksi Terbaru (Live)</h3>
+                <div class="flex items-center gap-2">
+                    <select id="filterStatus" onchange="loadOrders()" class="bg-binance-dark border border-binance-border text-xs rounded-lg px-2.5 py-1.5 text-white">
+                        <option value="">Semua Status</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="PAID">PAID</option>
+                        <option value="EXPIRED">EXPIRED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                    <button onclick="loadOrders()" class="bg-binance-card hover:bg-binance-border text-white text-xs px-3 py-1.5 rounded-lg border border-binance-border transition">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-binance-dark text-binance-muted border-b border-binance-border uppercase">
+                        <tr>
+                            <th class="py-3 px-4">Order ID / Ref</th>
+                            <th class="py-3 px-4">Nominal Tagihan</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4">Binance TxID / Payer</th>
+                            <th class="py-3 px-4">Webhook</th>
+                            <th class="py-3 px-4">Waktu</th>
+                            <th class="py-3 px-4 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody" class="divide-y divide-binance-border text-binance-text">
+                        <tr><td colspan="7" class="py-6 text-center text-binance-muted">Memuat data transaksi...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 2: Kelola Toko -->
+        <div id="tabApps" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Form Tambah Toko -->
+                <div class="bg-binance-card border border-binance-border rounded-xl p-5 h-fit">
+                    <h3 class="font-semibold text-white text-sm mb-4">Daftarkan Toko Baru</h3>
+                    <form onsubmit="handleCreateApp(event)">
+                        <div class="mb-3">
+                            <label class="block text-xs text-binance-muted mb-1">Nama Toko / Client</label>
+                            <input type="text" id="appName" placeholder="Contoh: Toko Diamond Game" required
+                                class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs text-binance-muted mb-1">Webhook URL</label>
+                            <input type="url" id="appWebhook" placeholder="https://tokomu.com/api/binance-webhook" required
+                                class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                        </div>
+                        <button type="submit" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold text-xs py-2.5 rounded-lg transition">
+                            + Buat Toko & API Key
+                        </button>
+                    </form>
+                </div>
+                <!-- Daftar Toko -->
+                <div class="md:col-span-2 bg-binance-card border border-binance-border rounded-xl overflow-hidden">
+                    <div class="p-4 border-b border-binance-border">
+                        <h3 class="font-semibold text-white text-sm">Daftar Web Toko Terdaftar</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-binance-dark text-binance-muted border-b border-binance-border uppercase">
+                                <tr>
+                                    <th class="py-3 px-4">Nama Toko</th>
+                                    <th class="py-3 px-4">API Key (X-API-Key)</th>
+                                    <th class="py-3 px-4">Webhook URL</th>
+                                    <th class="py-3 px-4 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="appsTableBody" class="divide-y divide-binance-border">
+                                <tr><td colspan="4" class="py-6 text-center text-binance-muted">Memuat daftar toko...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Pengaturan Binance Pay -->
+        <div id="tabConfig" class="hidden">
+            <div class="max-w-2xl bg-binance-card border border-binance-border rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b border-binance-border">
+                    <div>
+                        <h3 class="font-semibold text-white text-sm">Konfigurasi Akun & API Binance</h3>
+                        <p class="text-xs text-binance-muted">Pengaturan disimpan ke database runtime tanpa perlu restart server</p>
+                    </div>
+                    <button onclick="handleTestBinance()" id="btnTestBinance" class="bg-binance-dark hover:bg-binance-border border border-binance-yellow/40 text-binance-yellow text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                        <span>⚡</span> Tes Koneksi API
+                    </button>
+                </div>
+                <form onsubmit="handleSaveConfig(event)">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs text-binance-muted mb-1">Binance Pay ID Penerima</label>
+                            <input type="text" id="cfgPayID" placeholder="81726354" required
+                                class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-binance-muted mb-1">Nama Akun Binance</label>
+                            <input type="text" id="cfgAccountName" placeholder="StoreOfficial" required
+                                class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-xs text-binance-muted mb-1">Link Statis uni-qr Binance (Opsional)</label>
+                        <input type="text" id="cfgUniQR" placeholder="https://app.binance.com/uni-qr/c2c_example"
+                            class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-xs text-binance-muted mb-1">Binance API Key (Read-Only)</label>
+                        <input type="text" id="cfgApiKey" placeholder="Biarkan kosong jika tidak diubah"
+                            class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-xs text-binance-muted mb-1">Binance Secret Key (Read-Only)</label>
+                        <input type="password" id="cfgSecretKey" placeholder="Biarkan kosong jika tidak diubah"
+                            class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
+                    </div>
+                    <button type="submit" class="bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold text-xs px-5 py-2.5 rounded-lg transition">
+                        Simpan Pengaturan
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TAB 4: Mutasi Tak Dikenal -->
+        <div id="tabUnmatched" class="hidden">
+            <div class="bg-binance-card border border-binance-border rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-binance-border flex items-center justify-between">
+                    <div>
+                        <h3 class="font-semibold text-white text-sm">Mutasi Masuk Tak Cocok (Unmatched)</h3>
+                        <p class="text-xs text-binance-muted">Dana masuk di Binance Pay yang salah nominal sehingga tidak otomatis lunas</p>
+                    </div>
+                    <button onclick="loadUnmatched()" class="text-xs bg-binance-dark border border-binance-border px-3 py-1.5 rounded-lg text-white hover:bg-binance-border transition">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-binance-dark text-binance-muted border-b border-binance-border uppercase">
+                            <tr>
+                                <th class="py-3 px-4">Transaction ID</th>
+                                <th class="py-3 px-4">Nominal Masuk</th>
+                                <th class="py-3 px-4">Nama Pengirim</th>
+                                <th class="py-3 px-4">Waktu Transaksi</th>
+                                <th class="py-3 px-4">Tercatat Pada</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unmatchedTableBody" class="divide-y divide-binance-border">
+                            <tr><td colspan="5" class="py-6 text-center text-binance-muted">Memuat data mutasi...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal QR Code -->
+    <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-xl p-6 max-w-xs w-full text-center">
+            <h4 class="text-sm font-bold text-white mb-2" id="qrModalTitle">QR Pembayaran</h4>
+            <div class="bg-white p-3 rounded-lg inline-block mb-3">
+                <img id="qrModalImg" src="" alt="QR" class="w-48 h-48 mx-auto">
+            </div>
+            <p class="text-xs text-binance-muted mb-4" id="qrModalAmount"></p>
+            <button onclick="closeQrModal()" class="w-full bg-binance-dark border border-binance-border hover:bg-binance-border text-white text-xs py-2 rounded-lg transition">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let adminKey = sessionStorage.getItem('pg_admin_key');
+
+        function checkAuth() {
+            if (adminKey) {
+                document.getElementById('pinModal').classList.add('hidden');
+                initDashboard();
+            } else {
+                document.getElementById('pinModal').classList.remove('hidden');
+            }
+        }
+
+        async function handlePinLogin(e) {
+            e.preventDefault();
+            const pin = document.getElementById('pinInput').value.trim();
+            const errEl = document.getElementById('pinError');
+            errEl.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+                const json = await res.json();
+                if (json.success && json.admin_key) {
+                    adminKey = json.admin_key;
+                    sessionStorage.setItem('pg_admin_key', adminKey);
+                    document.getElementById('pinModal').classList.add('hidden');
+                    initDashboard();
+                } else {
+                    errEl.innerText = json.error || 'PIN Salah';
+                    errEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                errEl.innerText = 'Gagal menghubungi server';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('pg_admin_key');
+            location.reload();
+        }
+
+        function switchTab(tabId) {
+            ['tabOrders', 'tabApps', 'tabConfig', 'tabUnmatched'].forEach(t => document.getElementById(t).classList.add('hidden'));
+            ['navOrders', 'navApps', 'navConfig', 'navUnmatched'].forEach(n => {
+                document.getElementById(n).className = "pb-3 text-binance-muted hover:text-white transition";
+            });
+
+            document.getElementById(tabId).classList.remove('hidden');
+            const navId = 'nav' + tabId.replace('tab', '');
+            document.getElementById(navId).className = "pb-3 tab-active transition";
+
+            if (tabId === 'tabOrders') loadOrders();
+            if (tabId === 'tabApps') loadApps();
+            if (tabId === 'tabConfig') loadConfig();
+            if (tabId === 'tabUnmatched') loadUnmatched();
+        }
+
+        function initDashboard() {
+            loadStats();
+            loadOrders();
+            setInterval(() => {
+                if (!document.getElementById('tabOrders').classList.contains('hidden')) {
+                    loadStats();
+                    loadOrders();
+                }
+            }, 5000);
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats', { headers: { 'X-Admin-Key': adminKey } });
+                if (res.status === 401) { handleLogout(); return; }
+                const json = await res.json();
+                if (json.success && json.data) {
+                    document.getElementById('statOmset').innerText = json.data.total_omset_usdt.toFixed(3);
+                    document.getElementById('statPaid').innerText = json.data.count_paid;
+                    document.getElementById('statPending').innerText = json.data.count_pending;
+                    document.getElementById('statUnmatched').innerText = json.data.count_unmatched;
+                }
+            } catch (e) {}
+        }
+
+        async function loadOrders() {
+            const status = document.getElementById('filterStatus').value;
+            let url = '/api/orders';
+            if (status) url += '?status=' + status;
+
+            try {
+                const res = await fetch(url, { headers: { 'X-Admin-Key': adminKey } });
+                if (res.status === 401) { handleLogout(); return; }
+                const json = await res.json();
+                const tbody = document.getElementById('ordersTableBody');
+                if (!json.success || !json.data || json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-binance-muted">Belum ada transaksi.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map(o => {
+                    let badgeClass = "bg-amber-500/10 text-amber-400 border border-amber-500/30";
+                    if (o.status === 'PAID') badgeClass = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                    if (o.status === 'EXPIRED') badgeClass = "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30";
+                    if (o.status === 'CANCELLED') badgeClass = "bg-rose-500/10 text-rose-400 border border-rose-500/30";
+
+                    let webhookBadge = o.webhook_delivered ? 
+                        '<span class="text-emerald-400">✓ Sukses</span>' : 
+                        '<span class="text-binance-muted">-</span>';
+
+                    return `
+                        <tr class="hover:bg-binance-dark/50 transition">
+                            <td class="py-3 px-4 font-mono">
+                                <div class="font-semibold text-white">${o.id}</div>
+                                <div class="text-[11px] text-binance-muted">${o.reference_id}</div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="font-bold text-binance-yellow">${o.total_amount_str} <span class="text-[10px] text-binance-muted">${o.currency}</span></div>
+                                <div class="text-[10px] text-binance-muted">Base: ${o.original_amount} (+${o.unique_code})</div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${badgeClass}">${o.status}</span>
+                            </td>
+                            <td class="py-3 px-4 font-mono text-[11px]">
+                                <div class="text-white">${o.binance_tx_id || '-'}</div>
+                                <div class="text-binance-muted">${o.payer_name || ''}</div>
+                            </td>
+                            <td class="py-3 px-4 text-[11px]">${webhookBadge}</td>
+                            <td class="py-3 px-4 text-binance-muted text-[11px]">
+                                <div>Dibuat: ${o.created_at}</div>
+                                ${o.paid_at !== '-' ? '<div class="text-emerald-400">Lunas: ' + o.paid_at + '</div>' : ''}
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                <button onclick="openQrModal('${o.id}', '${o.qr_url}', '${o.total_amount_str} ${o.currency}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2.5 py-1 rounded transition text-binance-yellow">
+                                    Lihat QR
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {}
+        }
+
+        async function loadApps() {
+            try {
+                const res = await fetch('/api/apps', { headers: { 'X-Admin-Key': adminKey } });
+                if (res.status === 401) { handleLogout(); return; }
+                const json = await res.json();
+                const tbody = document.getElementById('appsTableBody');
+                if (!json.success || !json.data || json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-binance-muted">Belum ada toko yang didaftarkan.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map(a => `
+                    <tr class="hover:bg-binance-dark/50">
+                        <td class="py-3 px-4 font-semibold text-white">${a.name}</td>
+                        <td class="py-3 px-4 font-mono text-[11px] text-binance-yellow">
+                            <span class="cursor-pointer select-all" onclick="navigator.clipboard.writeText('${a.api_key}'); alert('API Key disalin!')" title="Klik untuk salin">${a.api_key}</span>
+                        </td>
+                        <td class="py-3 px-4 text-[11px] text-binance-muted truncate max-w-xs">${a.webhook_url}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="handleDeleteApp('${a.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Hapus</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {}
+        }
+
+        async function handleCreateApp(e) {
+            e.preventDefault();
+            const name = document.getElementById('appName').value.trim();
+            const webhook_url = document.getElementById('appWebhook').value.trim();
+
+            try {
+                const res = await fetch('/api/apps', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+                    body: JSON.stringify({ name, webhook_url })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('appName').value = '';
+                    document.getElementById('appWebhook').value = '';
+                    loadApps();
+                    alert('Toko berhasil dibuat! API Key: ' + json.data.api_key);
+                } else {
+                    alert('Gagal: ' + json.error);
+                }
+            } catch (e) {
+                alert('Gagal menghubungi server');
+            }
+        }
+
+        async function handleDeleteApp(id) {
+            if (!confirm('Yakin ingin menghapus toko ini?')) return;
+            try {
+                const res = await fetch('/api/apps/' + id, { method: 'DELETE', headers: { 'X-Admin-Key': adminKey } });
+                const json = await res.json();
+                if (json.success) loadApps();
+                else alert('Gagal: ' + json.error);
+            } catch (e) {}
+        }
+
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config/binance', { headers: { 'X-Admin-Key': adminKey } });
+                if (res.status === 401) { handleLogout(); return; }
+                const json = await res.json();
+                if (json.success && json.data) {
+                    document.getElementById('cfgPayID').value = json.data.binance_pay_id || '';
+                    document.getElementById('cfgAccountName').value = json.data.binance_account_name || '';
+                    document.getElementById('cfgUniQR').value = json.data.binance_uni_qr_url || '';
+                    document.getElementById('cfgApiKey').value = json.data.binance_api_key || '';
+                    document.getElementById('cfgSecretKey').value = json.data.binance_secret_key || '';
+                }
+            } catch (e) {}
+        }
+
+        async function handleSaveConfig(e) {
+            e.preventDefault();
+            const payload = {
+                binance_pay_id: document.getElementById('cfgPayID').value.trim(),
+                binance_account_name: document.getElementById('cfgAccountName').value.trim(),
+                binance_uni_qr_url: document.getElementById('cfgUniQR').value.trim(),
+                binance_api_key: document.getElementById('cfgApiKey').value.trim(),
+                binance_secret_key: document.getElementById('cfgSecretKey').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/config/binance', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Pengaturan Binance berhasil disimpan!');
+                    loadConfig();
+                } else {
+                    alert('Gagal: ' + json.error);
+                }
+            } catch (e) {
+                alert('Gagal menghubungi server');
+            }
+        }
+
+        async function handleTestBinance() {
+            const btn = document.getElementById('btnTestBinance');
+            btn.innerText = 'Menguji...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/config/binance/test', {
+                    method: 'POST',
+                    headers: { 'X-Admin-Key': adminKey }
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert('✅ Sukses! ' + json.message + ' (Terdeteksi ' + json.incoming_count + ' mutasi masuk)');
+                } else {
+                    alert('❌ ' + json.error);
+                }
+            } catch (e) {
+                alert('Gagal menghubungi server');
+            } finally {
+                btn.innerHTML = '<span>⚡</span> Tes Koneksi API';
+                btn.disabled = false;
+            }
+        }
+
+        async function loadUnmatched() {
+            try {
+                const res = await fetch('/api/unmatched', { headers: { 'X-Admin-Key': adminKey } });
+                if (res.status === 401) { handleLogout(); return; }
+                const json = await res.json();
+                const tbody = document.getElementById('unmatchedTableBody');
+                if (!json.success || !json.data || json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-binance-muted">Tidak ada mutasi tak dikenal.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map(u => `
+                    <tr class="hover:bg-binance-dark/50">
+                        <td class="py-3 px-4 font-mono text-[11px] text-white">${u.binance_tx_id}</td>
+                        <td class="py-3 px-4 font-bold text-rose-400">${u.amount_str} ${u.currency}</td>
+                        <td class="py-3 px-4 text-binance-text">${u.payer_name || '-'}</td>
+                        <td class="py-3 px-4 text-binance-muted">${u.tx_time}</td>
+                        <td class="py-3 px-4 text-binance-muted">${u.recorded_at}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {}
+        }
+
+        function openQrModal(id, url, amount) {
+            document.getElementById('qrModalTitle').innerText = 'Tagihan ' + id;
+            document.getElementById('qrModalImg').src = url;
+            document.getElementById('qrModalAmount').innerText = 'Wajib Transfer: ' + amount;
+            document.getElementById('qrModal').classList.remove('hidden');
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        // Jalankan saat halaman dibuka
+        checkAuth();
+    </script>
+</body>
+</html>

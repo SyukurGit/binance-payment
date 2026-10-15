@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaymentG — Binance Pay Sandbox Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        binance: {
+                            yellow: '#F3BA2F',
+                            yellowHover: '#DCA219',
+                            dark: '#0B0E11',
+                            card: '#181A20',
+                            border: '#2B313A',
+                            text: '#EAECEF',
+                            muted: '#848E9C'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0B0E11; color: #EAECEF; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .tab-active { border-bottom: 2px solid #10B981; color: #10B981; font-weight: 600; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Modal Login PIN Sandbox -->
+    <div id="pinModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 mb-3 border border-emerald-500/30">
+                    <span class="text-xl">🧪</span>
+                </div>
+                <h2 class="text-xl font-bold text-white">PaymentG Sandbox</h2>
+                <p class="text-xs text-binance-muted mt-1">Masukkan PIN Admin untuk membuka simulator sandbox</p>
+            </div>
+            <form id="pinForm" onsubmit="handlePinLogin(event)">
+                <div class="mb-4">
+                    <input type="password" id="pinInput" placeholder="Masukkan PIN Admin" maxlength="10"
+                        class="w-full text-center text-2xl tracking-widest bg-binance-dark border border-binance-border rounded-lg py-3 text-white focus:outline-none focus:border-emerald-500 transition" autofocus>
+                    <p id="pinError" class="text-xs text-red-500 mt-2 text-center hidden"></p>
+                </div>
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold py-2.5 rounded-lg transition">
+                    Buka Sandbox
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Navigasi -->
+    <header class="border-b border-binance-border bg-binance-card sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-sm">
+                    🧪
+                </div>
+                <div>
+                    <h1 class="font-bold text-white leading-tight">PaymentG <span class="text-emerald-400 text-xs px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 ml-1">Sandbox Simulator</span></h1>
+                    <p class="text-[11px] text-binance-muted">Lingkungan Pengujian Terisolasi & Webhook 1-Klik</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="handleCreateDemoOrder()" id="btnCreateDemo" class="text-xs bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-3 py-1.5 rounded-lg transition shadow flex items-center gap-1.5">
+                    <span>+</span> Buat Tagihan Test
+                </button>
+                <a href="/dashboard/" class="text-xs text-binance-yellow border border-binance-yellow/30 bg-binance-yellow/10 px-3 py-1.5 rounded-lg hover:bg-binance-yellow/20 transition flex items-center gap-1">
+                    <span>📊</span> Buka Live Dashboard
+                </a>
+                <button onclick="handleLogout()" class="text-xs text-binance-muted hover:text-white px-3 py-1.5 rounded-lg border border-binance-border hover:bg-binance-dark transition">
+                    Kunci PIN
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Konten Dashboard Sandbox -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+        <!-- 4 Kartu Statistik (Grid Persis Dashboard Real) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Total Omset Sandbox</p>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="statOmset" class="text-2xl font-bold text-emerald-400">0.000</span>
+                    <span class="text-xs text-binance-muted">USDT</span>
+                </div>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Tagihan Lunas (PAID)</p>
+                <p id="statPaid" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <p class="text-xs text-binance-muted">Menunggu Pembayaran</p>
+                <p id="statPending" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+            </div>
+            <div class="bg-binance-card border border-binance-border rounded-xl p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs text-binance-muted">Sandbox API Key</p>
+                    <button onclick="copyActiveApiKey()" class="text-[10px] text-emerald-400 hover:underline">Salin</button>
+                </div>
+                <div id="statApiKey" class="text-xs font-mono font-bold text-binance-yellow mt-2 truncate select-all cursor-pointer" onclick="copyActiveApiKey()" title="Klik untuk salin">
+                    Memuat...
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigasi -->
+        <div class="flex border-b border-binance-border gap-6 text-sm mb-6">
+            <button onclick="switchTab('tabOrders')" id="navOrders" class="pb-3 tab-active transition">Riwayat Transaksi Sandbox</button>
+            <button onclick="switchTab('tabApps')" id="navApps" class="pb-3 text-binance-muted hover:text-white transition">Kelola Toko Sandbox (Apps)</button>
+            <button onclick="switchTab('tabCurl')" id="navCurl" class="pb-3 text-binance-muted hover:text-white transition">Kredensial & Contoh cURL</button>
+        </div>
+
+        <!-- TAB 1: Transaksi Sandbox (Tabel Persis Real Dashboard) -->
+        <div id="tabOrders">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="font-semibold text-white text-sm">Daftar Tagihan Sandbox (Database Terpisah)</h3>
+                    <p class="text-xs text-binance-muted">Gunakan tombol "⚡ 1-Klik Lunas" untuk memicu webhook otomatis ke toko Anda.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="filterStatus" onchange="loadSandboxOrders()" class="bg-binance-dark border border-binance-border text-xs rounded-lg px-2.5 py-1.5 text-white">
+                        <option value="">Semua Status</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="PAID">PAID</option>
+                        <option value="EXPIRED">EXPIRED</option>
+                    </select>
+                    <button onclick="loadSandboxOrders()" class="bg-binance-card hover:bg-binance-border text-white text-xs px-3 py-1.5 rounded-lg border border-binance-border transition">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-binance-card border border-binance-border rounded-xl overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-binance-dark text-binance-muted border-b border-binance-border uppercase">
+                        <tr>
+                            <th class="py-3 px-4">Order ID / Ref</th>
+                            <th class="py-3 px-4">Nominal Tagihan</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4">Binance TxID / Payer</th>
+                            <th class="py-3 px-4">Waktu</th>
+                            <th class="py-3 px-4 text-right">Aksi Simulator</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody" class="divide-y divide-binance-border text-binance-text">
+                        <tr><td colspan="6" class="py-6 text-center text-binance-muted">Memuat data transaksi sandbox...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 2: Kelola Toko Sandbox (Apps) -->
+        <div id="tabApps" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Form Tambah Toko Sandbox -->
+                <div class="bg-binance-card border border-binance-border rounded-xl p-5 h-fit">
+                    <h3 class="font-semibold text-white text-sm mb-4">+ Tambah Toko Testing Sandbox</h3>
+                    <form onsubmit="handleCreateSandboxApp(event)">
+                        <div class="mb-3">
+                            <label class="block text-xs text-binance-muted mb-1">Nama Toko Testing</label>
+                            <input type="text" id="appName" placeholder="Contoh: Toko Diamond Sandbox" required
+                                class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs text-binance-muted mb-1">Webhook URL Testing</label>
+                            <input type="url" id="appWebhook" placeholder="https://webhook.site/anda atau localhost" required
+                                class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs py-2.5 rounded-lg transition">
+                            + Buat Toko Sandbox
+                        </button>
+                    </form>
+                </div>
+                <!-- Tabel Toko Sandbox -->
+                <div class="md:col-span-2 bg-binance-card border border-binance-border rounded-xl overflow-hidden">
+                    <div class="p-4 border-b border-binance-border flex items-center justify-between">
+                        <h3 class="font-semibold text-white text-sm">Daftar Toko & API Key Sandbox</h3>
+                        <span class="text-xs text-binance-muted">Otomatis sinkron ke Live</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-binance-dark text-binance-muted border-b border-binance-border uppercase">
+                                <tr>
+                                    <th class="py-3 px-4">Nama Toko</th>
+                                    <th class="py-3 px-4">API Key (X-API-Key)</th>
+                                    <th class="py-3 px-4">Webhook URL</th>
+                                    <th class="py-3 px-4 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="appsTableBody" class="divide-y divide-binance-border">
+                                <tr><td colspan="4" class="py-6 text-center text-binance-muted">Memuat daftar toko...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Kredensial & Contoh cURL -->
+        <div id="tabCurl" class="hidden">
+            <div class="max-w-3xl bg-binance-card border border-binance-border rounded-xl p-6">
+                <h3 class="font-semibold text-white text-sm mb-2">Panduan Integrasi Sandbox (Plug & Play)</h3>
+                <p class="text-xs text-binance-muted mb-4">Gunakan konfigurasi berikut pada file <code>.env</code> toko e-commerce Anda saat pengujian:</p>
+
+                <div class="space-y-4 mb-6">
+                    <div class="bg-binance-dark p-3 rounded-lg border border-binance-border flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] text-binance-muted">SANDBOX ENDPOINT URL:</div>
+                            <div class="font-mono text-xs text-white font-bold" id="curlBaseUrl">http://localhost:3300/api/sandbox</div>
+                        </div>
+                        <button onclick="copyText(document.getElementById('curlBaseUrl').innerText)" class="text-xs text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 rounded hover:bg-emerald-500/20 transition">Salin URL</button>
+                    </div>
+
+                    <div class="bg-binance-dark p-3 rounded-lg border border-binance-border flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] text-binance-muted">SANDBOX ACTIVE API KEY:</div>
+                            <div class="font-mono text-xs text-binance-yellow font-bold" id="curlApiKey">ak_...</div>
+                        </div>
+                        <button onclick="copyText(document.getElementById('curlApiKey').innerText)" class="text-xs text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 rounded hover:bg-emerald-500/20 transition">Salin Key</button>
+                    </div>
+                </div>
+
+                <div class="mb-2 flex items-center justify-between">
+                    <span class="text-xs font-semibold text-white">Contoh Request cURL Buat Tagihan Test:</span>
+                    <button onclick="copyText(document.getElementById('curlSnippet').innerText)" class="text-[11px] text-emerald-400 hover:underline">Salin cURL</button>
+                </div>
+                <pre id="curlSnippet" class="bg-binance-dark p-4 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto select-all border border-binance-border mb-4"></pre>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal QR Code -->
+    <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-xl p-6 max-w-xs w-full text-center">
+            <h4 class="text-sm font-bold text-white mb-2" id="qrModalTitle">QR Pembayaran Sandbox</h4>
+            <div class="bg-white p-3 rounded-lg inline-block mb-3">
+                <img id="qrModalImg" src="" alt="QR" class="w-48 h-48 mx-auto">
+            </div>
+            <p class="text-xs text-binance-muted mb-4" id="qrModalAmount"></p>
+            <button onclick="closeQrModal()" class="w-full bg-binance-dark border border-binance-border hover:bg-binance-border text-white text-xs py-2 rounded-lg transition">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Preview Checkout Pembeli Interaktif -->
+    <div id="checkoutPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-2xl max-w-sm w-full p-6 shadow-2xl relative text-center">
+            <button onclick="closePreviewModal()" class="absolute top-4 right-4 text-binance-muted hover:text-white text-sm">✕</button>
+            
+            <div class="flex items-center justify-center gap-1.5 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" id="prevPulse"></span>
+                <span class="text-xs text-amber-400 font-semibold" id="prevStatusBadge">Menunggu Pembayaran</span>
+            </div>
+            <h3 class="text-base font-bold text-white mb-3">Binance Pay Checkout Simulator</h3>
+
+            <div class="bg-binance-dark p-3 rounded-xl border border-binance-border mb-3">
+                <div class="text-[11px] text-binance-muted mb-0.5">Total Tagihan Yang Harus Ditransfer:</div>
+                <div class="text-2xl font-black text-binance-yellow font-mono" id="prevAmount">0.000 USDT</div>
+                <button onclick="copyText(document.getElementById('prevAmount').innerText.split(' ')[0])" class="mt-1 text-[10px] bg-binance-card hover:bg-binance-border text-white px-2.5 py-0.5 rounded border border-binance-border transition">
+                    📋 Salin Nominal Persis
+                </button>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl inline-block mb-3 shadow-md">
+                <img id="prevQrImg" src="" alt="QR" class="w-40 h-40 mx-auto">
+            </div>
+
+            <div class="mb-4 text-xs text-binance-muted">
+                Transfer ke Pay ID: <strong id="prevPayId" class="text-white font-mono select-all">81726354</strong>
+                <button onclick="copyText(document.getElementById('prevPayId').innerText)" class="ml-1 text-[10px] text-emerald-400">📋 Salin</button>
+            </div>
+
+            <div class="space-y-2">
+                <button id="btnPrevSimulate" onclick="handlePreviewSimulatePay()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs py-2.5 rounded-xl transition shadow-lg">
+                    ⚡ Simulasikan Bayar Lunas (1-Klik)
+                </button>
+                <button id="btnPrevCheck" onclick="handlePreviewCheckStatus()" class="w-full bg-binance-dark hover:bg-binance-border text-white text-xs py-2 rounded-xl border border-binance-border transition">
+                    🔄 Saya Sudah Bayar / Cek Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sandboxAuth = sessionStorage.getItem('pg_sandbox_key');
+        let activeOrderId = null;
+        let activeApiKey = '';
+
+        function checkAuth() {
+            if (sandboxAuth) {
+                document.getElementById('pinModal').classList.add('hidden');
+                initDashboard();
+            } else {
+                document.getElementById('pinModal').classList.remove('hidden');
+            }
+        }
+
+        async function handlePinLogin(e) {
+            e.preventDefault();
+            const pin = document.getElementById('pinInput').value.trim();
+            const errEl = document.getElementById('pinError');
+            errEl.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+                const json = await res.json();
+                if (json.success && json.admin_key) {
+                    sandboxAuth = json.admin_key;
+                    sessionStorage.setItem('pg_sandbox_key', sandboxAuth);
+                    document.getElementById('pinModal').classList.add('hidden');
+                    initDashboard();
+                } else {
+                    errEl.innerText = json.error || 'PIN Salah';
+                    errEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                errEl.innerText = 'Gagal menghubungi server';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('pg_sandbox_key');
+            location.reload();
+        }
+
+        function switchTab(tabId) {
+            ['tabOrders', 'tabApps', 'tabCurl'].forEach(t => document.getElementById(t).classList.add('hidden'));
+            ['navOrders', 'navApps', 'navCurl'].forEach(n => {
+                document.getElementById(n).className = "pb-3 text-binance-muted hover:text-white transition";
+            });
+
+            document.getElementById(tabId).classList.remove('hidden');
+            const navId = 'nav' + tabId.replace('tab', '');
+            document.getElementById(navId).className = "pb-3 tab-active transition";
+
+            if (tabId === 'tabOrders') loadSandboxOrders();
+            if (tabId === 'tabApps') loadSandboxApps();
+            if (tabId === 'tabCurl') loadCredentials();
+        }
+
+        function initDashboard() {
+            loadStats();
+            loadCredentials();
+            loadSandboxOrders();
+            setInterval(() => {
+                if (!document.getElementById('tabOrders').classList.contains('hidden')) {
+                    loadStats();
+                    loadSandboxOrders();
+                }
+            }, 3000);
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/sandbox/stats');
+                const json = await res.json();
+                if (json.success && json.data) {
+                    document.getElementById('statOmset').innerText = json.data.total_omset_usdt.toFixed(3);
+                    document.getElementById('statPaid').innerText = json.data.count_paid;
+                    document.getElementById('statPending').innerText = json.data.count_pending;
+                }
+            } catch (e) {}
+        }
+
+        async function loadCredentials() {
+            try {
+                const res = await fetch('/api/sandbox/credentials');
+                const json = await res.json();
+                if (json.success && json.data) {
+                    activeApiKey = json.data.api_key;
+                    document.getElementById('statApiKey').innerText = activeApiKey;
+                    document.getElementById('curlBaseUrl').innerText = json.data.sandbox_base_url;
+                    document.getElementById('curlApiKey').innerText = activeApiKey;
+                    document.getElementById('curlSnippet').innerText = json.data.example_curl;
+                }
+            } catch (e) {}
+        }
+
+        function copyActiveApiKey() {
+            if (activeApiKey) copyText(activeApiKey);
+        }
+
+        async function loadSandboxOrders() {
+            const statusFilter = document.getElementById('filterStatus').value;
+            try {
+                const res = await fetch('/api/sandbox/orders');
+                const json = await res.json();
+                const tbody = document.getElementById('ordersTableBody');
+
+                if (!json.success || !json.data || json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-binance-muted">Belum ada transaksi sandbox.</td></tr>';
+                    return;
+                }
+
+                let filtered = json.data;
+                if (statusFilter) {
+                    filtered = filtered.filter(o => o.status === statusFilter);
+                }
+
+                if (filtered.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-binance-muted">Tidak ada transaksi dengan status ini.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = filtered.map(o => {
+                    let isPending = o.status === 'PENDING';
+                    let badgeClass = isPending ? 
+                        "bg-amber-500/10 text-amber-400 border border-amber-500/30" : 
+                        (o.status === 'PAID' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30");
+
+                    let actionSimulate = isPending ? `
+                        <button onclick="handleSimulatePay('${o.id}')" class="text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-2.5 py-1 rounded transition shadow">
+                            ⚡ 1-Klik Lunas
+                        </button>
+                    ` : '';
+
+                    return `
+                        <tr class="hover:bg-binance-dark/50 transition">
+                            <td class="py-3 px-4 font-mono">
+                                <div class="font-semibold text-white">${o.id}</div>
+                                <div class="text-[11px] text-binance-muted">${o.reference_id}</div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="font-bold text-binance-yellow">${o.total_amount_str} <span class="text-[10px] text-binance-muted">${o.currency}</span></div>
+                                <div class="text-[10px] text-binance-muted">Base: ${o.original_amount} (+${o.unique_code})</div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${badgeClass}">${o.status}</span>
+                            </td>
+                            <td class="py-3 px-4 font-mono text-[11px]">
+                                <div class="text-white">${o.binance_tx_id || '-'}</div>
+                                <div class="text-binance-muted">${o.payer_name || ''}</div>
+                            </td>
+                            <td class="py-3 px-4 text-binance-muted text-[11px]">
+                                <div>Dibuat: ${o.created_at}</div>
+                                ${o.paid_at !== '-' ? '<div class="text-emerald-400">Lunas: ' + o.paid_at + '</div>' : ''}
+                            </td>
+                            <td class="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
+                                ${actionSimulate}
+                                <button onclick="openPreviewModal('${o.id}', '${o.total_amount_str} ${o.currency}', '${o.qr_url}', '${o.status}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2 py-1 rounded text-white transition">
+                                    👁️ Preview
+                                </button>
+                                <button onclick="openQrModal('${o.id}', '${o.qr_url}', '${o.total_amount_str} ${o.currency}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2 py-1 rounded text-binance-yellow transition">
+                                    QR
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {}
+        }
+
+        async function handleSimulatePay(orderId) {
+            try {
+                const res = await fetch(`/api/sandbox/orders/${orderId}/pay`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    alert('⚡ ' + json.message);
+                    loadStats();
+                    loadSandboxOrders();
+                } else {
+                    alert('Gagal: ' + json.error);
+                }
+            } catch (e) {
+                alert('Gagal menghubungi server');
+            }
+        }
+
+        async function handleCreateDemoOrder() {
+            const btn = document.getElementById('btnCreateDemo');
+            btn.innerText = 'Membuat...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/sandbox/orders/create-demo', { method: 'POST' });
+                const json = await res.json();
+                if (json.success && json.data) {
+                    loadStats();
+                    loadSandboxOrders();
+                    openPreviewModal(json.data.order_id, json.data.total_amount_str + ' ' + json.data.currency, json.data.qr_url, json.data.status);
+                } else {
+                    alert('Gagal: ' + (json.error || 'Terjadi kesalahan'));
+                }
+            } catch (e) {
+                alert('Gagal membuat demo order');
+            } finally {
+                btn.innerHTML = '<span>+</span> Buat Tagihan Test';
+                btn.disabled = false;
+            }
+        }
+
+        async function loadSandboxApps() {
+            try {
+                const res = await fetch('/api/sandbox/apps');
+                const json = await res.json();
+                const tbody = document.getElementById('appsTableBody');
+                if (!json.success || !json.data || json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-binance-muted">Belum ada toko di sandbox.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map(a => `
+                    <tr class="hover:bg-binance-dark/50">
+                        <td class="py-3 px-4 font-semibold text-white">${a.name}</td>
+                        <td class="py-3 px-4 font-mono text-[11px] text-binance-yellow">
+                            <span class="cursor-pointer select-all" onclick="copyText('${a.api_key}')" title="Klik untuk salin">${a.api_key}</span>
+                        </td>
+                        <td class="py-3 px-4 text-[11px] text-binance-muted truncate max-w-xs">${a.webhook_url}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="handleDeleteSandboxApp('${a.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Hapus</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {}
+        }
+
+        async function handleCreateSandboxApp(e) {
+            e.preventDefault();
+            const name = document.getElementById('appName').value.trim();
+            const webhook_url = document.getElementById('appWebhook').value.trim();
+
+            try {
+                const res = await fetch('/api/sandbox/apps', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, webhook_url })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('appName').value = '';
+                    document.getElementById('appWebhook').value = '';
+                    loadSandboxApps();
+                    loadCredentials();
+                    alert('Toko sandbox berhasil dibuat! API Key: ' + json.data.api_key);
+                } else {
+                    alert('Gagal: ' + json.error);
+                }
+            } catch (e) {
+                alert('Gagal menghubungi server');
+            }
+        }
+
+        async function handleDeleteSandboxApp(id) {
+            if (!confirm('Yakin ingin menghapus toko sandbox ini?')) return;
+            try {
+                const res = await fetch('/api/sandbox/apps/' + id, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    loadSandboxApps();
+                    loadCredentials();
+                } else {
+                    alert('Gagal: ' + json.error);
+                }
+            } catch (e) {}
+        }
+
+        function openQrModal(id, url, amount) {
+            document.getElementById('qrModalTitle').innerText = 'Tagihan Sandbox ' + id;
+            document.getElementById('qrModalImg').src = url;
+            document.getElementById('qrModalAmount').innerText = 'Wajib Transfer: ' + amount;
+            document.getElementById('qrModal').classList.remove('hidden');
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        // Preview Checkout Modal
+        function openPreviewModal(id, amount, qrUrl, status) {
+            activeOrderId = id;
+            document.getElementById('prevAmount').innerText = amount;
+            document.getElementById('prevQrImg').src = qrUrl;
+            const isPaid = status === 'PAID';
+            document.getElementById('prevStatusBadge').innerText = isPaid ? '✓ Sudah Lunas' : 'Menunggu Pembayaran';
+            document.getElementById('prevPulse').className = isPaid ? "w-2.5 h-2.5 rounded-full bg-emerald-400" : "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+            document.getElementById('checkoutPreviewModal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('checkoutPreviewModal').classList.add('hidden');
+            activeOrderId = null;
+        }
+
+        async function handlePreviewSimulatePay() {
+            if (!activeOrderId) return;
+            await handleSimulatePay(activeOrderId);
+            document.getElementById('prevStatusBadge').innerText = '✓ Sudah Lunas';
+            document.getElementById('prevPulse').className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+        }
+
+        async function handlePreviewCheckStatus() {
+            if (!activeOrderId) return;
+            try {
+                const headers = {};
+                if (activeApiKey) headers['X-API-Key'] = activeApiKey;
+                const res = await fetch(`/api/sandbox/orders/${activeOrderId}`, { headers });
+                const json = await res.json();
+                if (json.success && json.data && json.data.status === 'PAID') {
+                    alert('✅ Status Tagihan: LUNAS!');
+                    document.getElementById('prevStatusBadge').innerText = '✓ Sudah Lunas';
+                    document.getElementById('prevPulse').className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+                    loadSandboxOrders();
+                } else {
+                    alert('⏳ Status masih: PENDING. Silakan klik tombol "⚡ Simulasikan Bayar Lunas" terlebih dahulu.');
+                }
+            } catch (e) {
+                alert('Gagal memeriksa status');
+            }
+        }
+
+        function copyText(txt) {
+            navigator.clipboard.writeText(txt);
+            alert('Teks disalin: ' + txt);
+        }
+
+        // Mulai pengecekan PIN saat halaman dibuka
+        checkAuth();
+    </script>
+</body>
+</html>
