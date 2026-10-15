@@ -294,6 +294,16 @@
         let activeOrderId = null;
         let activeApiKey = '';
 
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function checkAuth() {
             if (sandboxAuth) {
                 document.getElementById('pinModal').classList.add('hidden');
@@ -421,8 +431,21 @@
                         "bg-amber-500/10 text-amber-400 border border-amber-500/30" : 
                         (o.status === 'PAID' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30");
 
+                    const safeId = escapeHtml(o.id);
+                    const safeRef = escapeHtml(o.reference_id);
+                    const safeTxId = escapeHtml(o.binance_tx_id || '-');
+                    const safePayer = escapeHtml(o.payer_name || '');
+                    const safeTotalStr = escapeHtml(o.total_amount_str);
+                    const safeCurrency = escapeHtml(o.currency);
+                    const safeOriginal = escapeHtml(o.original_amount);
+                    const safeUnique = escapeHtml(o.unique_code);
+                    const safeStatus = escapeHtml(o.status);
+                    const safeCreatedAt = escapeHtml(o.created_at);
+                    const safePaidAt = escapeHtml(o.paid_at);
+                    const safeQrUrl = escapeHtml(o.qr_url);
+
                     let actionSimulate = isPending ? `
-                        <button onclick="handleSimulatePay('${o.id}')" class="text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-2.5 py-1 rounded transition shadow">
+                        <button onclick="handleSimulatePay('${safeId}')" class="text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-2.5 py-1 rounded transition shadow">
                             ⚡ 1-Klik Lunas
                         </button>
                     ` : '';
@@ -430,30 +453,30 @@
                     return `
                         <tr class="hover:bg-binance-dark/50 transition">
                             <td class="py-3 px-4 font-mono">
-                                <div class="font-semibold text-white">${o.id}</div>
-                                <div class="text-[11px] text-binance-muted">${o.reference_id}</div>
+                                <div class="font-semibold text-white">${safeId}</div>
+                                <div class="text-[11px] text-binance-muted">${safeRef}</div>
                             </td>
                             <td class="py-3 px-4">
-                                <div class="font-bold text-binance-yellow">${o.total_amount_str} <span class="text-[10px] text-binance-muted">${o.currency}</span></div>
-                                <div class="text-[10px] text-binance-muted">Base: ${o.original_amount} (+${o.unique_code})</div>
+                                <div class="font-bold text-binance-yellow">${safeTotalStr} <span class="text-[10px] text-binance-muted">${safeCurrency}</span></div>
+                                <div class="text-[10px] text-binance-muted">Base: ${safeOriginal} (+${safeUnique})</div>
                             </td>
                             <td class="py-3 px-4">
-                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${badgeClass}">${o.status}</span>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${badgeClass}">${safeStatus}</span>
                             </td>
                             <td class="py-3 px-4 font-mono text-[11px]">
-                                <div class="text-white">${o.binance_tx_id || '-'}</div>
-                                <div class="text-binance-muted">${o.payer_name || ''}</div>
+                                <div class="text-white">${safeTxId}</div>
+                                <div class="text-binance-muted">${safePayer}</div>
                             </td>
                             <td class="py-3 px-4 text-binance-muted text-[11px]">
-                                <div>Dibuat: ${o.created_at}</div>
-                                ${o.paid_at !== '-' ? '<div class="text-emerald-400">Lunas: ' + o.paid_at + '</div>' : ''}
+                                <div>Dibuat: ${safeCreatedAt}</div>
+                                ${o.paid_at !== '-' ? '<div class="text-emerald-400">Lunas: ' + safePaidAt + '</div>' : ''}
                             </td>
                             <td class="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
                                 ${actionSimulate}
-                                <button onclick="openPreviewModal('${o.id}', '${o.total_amount_str} ${o.currency}', '${o.qr_url}', '${o.status}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2 py-1 rounded text-white transition">
+                                <button onclick="openPreviewModal('${safeId}', '${safeTotalStr} ${safeCurrency}', '${safeQrUrl}', '${safeStatus}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2 py-1 rounded text-white transition">
                                     👁️ Preview
                                 </button>
-                                <button onclick="openQrModal('${o.id}', '${o.qr_url}', '${o.total_amount_str} ${o.currency}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2 py-1 rounded text-binance-yellow transition">
+                                <button onclick="openQrModal('${safeId}', '${safeQrUrl}', '${safeTotalStr} ${safeCurrency}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2 py-1 rounded text-binance-yellow transition">
                                     QR
                                 </button>
                             </td>
@@ -512,18 +535,24 @@
                     return;
                 }
 
-                tbody.innerHTML = json.data.map(a => `
+                tbody.innerHTML = json.data.map(a => {
+                    const safeId = escapeHtml(a.id);
+                    const safeName = escapeHtml(a.name);
+                    const safeApiKey = escapeHtml(a.api_key);
+                    const safeWebhook = escapeHtml(a.webhook_url);
+                    return `
                     <tr class="hover:bg-binance-dark/50">
-                        <td class="py-3 px-4 font-semibold text-white">${a.name}</td>
+                        <td class="py-3 px-4 font-semibold text-white">${safeName}</td>
                         <td class="py-3 px-4 font-mono text-[11px] text-binance-yellow">
-                            <span class="cursor-pointer select-all" onclick="copyText('${a.api_key}')" title="Klik untuk salin">${a.api_key}</span>
+                            <span class="cursor-pointer select-all" onclick="copyText('${safeApiKey}')" title="Klik untuk salin">${safeApiKey}</span>
                         </td>
-                        <td class="py-3 px-4 text-[11px] text-binance-muted truncate max-w-xs">${a.webhook_url}</td>
+                        <td class="py-3 px-4 text-[11px] text-binance-muted truncate max-w-xs">${safeWebhook}</td>
                         <td class="py-3 px-4 text-right">
-                            <button onclick="handleDeleteSandboxApp('${a.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Hapus</button>
+                            <button onclick="handleDeleteSandboxApp('${safeId}')" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Hapus</button>
                         </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
             } catch (e) {}
         }
 

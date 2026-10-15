@@ -75,6 +75,8 @@ Ketika pembeli menekan tombol **"Beli Sekarang"** atau **"Bayar via Binance Pay"
     "expiry_minutes": 15
   }
   ```
+  > [!NOTE]
+  > **Batas Minimal:** Nominal pembayaran (`amount`) minimal adalah **0.01 USDT** mengikuti aturan batas transfer minimum resmi dari Binance Pay.
 
 * **Response dari PaymentG (`HTTP 201 Created`):**
   ```json
@@ -92,7 +94,7 @@ Ketika pembeli menekan tombol **"Beli Sekarang"** atau **"Bayar via Binance Pay"
       "binance_account_name": "AirpayX7",
       "binance_uni_qr_url": "https://app.binance.com/uni-qr/...",
       "status": "PENDING",
-      "qr_url": "/api/sandbox/orders/ord_2I8gk3xQvfcA/qr.png",
+      "qr_url": "https://gateway.tokomu.com/api/orders/ord_2I8gk3xQvfcA/qr.png",
       "expires_at": "2026-10-15T13:15:00Z",
       "expires_in_seconds": 900
     }
@@ -101,17 +103,18 @@ Ketika pembeli menekan tombol **"Beli Sekarang"** atau **"Bayar via Binance Pay"
 
 * **Tindakan Backend Toko:**
   1. Simpan `order_id` (`ord_2I8gk3xQvfcA`) dan `total_amount_str` (`"0.814"`) ke database pesanan Anda.
-  2. Teruskan objek `data` di atas ke Frontend pembeli untuk dirender.
+  2. Teruskan objek `data` di atas ke Frontend pembeli untuk dirender. `qr_url` otomatis berupa URL lengkap absolut (HTTPS) sehingga dapat langsung dipakai pada `<img src="...">` di domain manapun.
 
 ---
 
-### B. Endpoint Penerima Webhook (Wajib Signature Verification)
+### B. Endpoint Penerima Webhook (Signature & Anti-Replay Verification)
 Toko Anda **WAJIB** menyediakan satu endpoint HTTP POST publik (misal: `https://tokomu.com/api/payment/binance-webhook`) untuk menerima kabar pelunasan otomatis.
 
 #### 1. Header yang Dikirimkan oleh PaymentG:
 * `Content-Type: application/json`
 * `X-Webhook-Event: payment.success`
 * `X-Webhook-Signature: <string_hex_hmac_sha256>`
+* `X-Webhook-Timestamp: <unix_epoch_seconds>`
 * `User-Agent: PaymentG-Binance-Webhook/1.0`
 
 #### 2. Format Body Payload Webhook:
@@ -127,15 +130,19 @@ Toko Anda **WAJIB** menyediakan satu endpoint HTTP POST publik (misal: `https://
   "total_amount": 0.814,
   "total_amount_str": "0.814",
   "paid_at": "2026-10-15T12:45:10Z",
-  "binance_tx_id": "M_P_71505104267788288"
+  "binance_tx_id": "M_P_71505104267788288",
+  "timestamp": 1776257110
 }
 ```
 
-#### 3. Logika Verifikasi Signature (Aturan Keamanan):
-Hitung HMAC-SHA256 dari **Raw Body Request** menggunakan `PAYMENTG_API_KEY` toko Anda. Jika signature tidak cocok, tolak request dengan status `HTTP 401 Unauthorized`.
+#### 3. Logika Verifikasi Signature & Anti-Replay:
+1. Hitung HMAC-SHA256 dari **Raw Body Request** menggunakan `PAYMENTG_API_KEY` toko Anda. Jika signature tidak cocok, tolak request dengan status `HTTP 401 Unauthorized`.
+2. Validasi Anti-Replay: Pastikan selisih waktu antara waktu saat ini (`now()`) dan `payload.timestamp` tidak lebih dari 300 detik (5 menit). Jika lebih dari 5 menit, tolak request untuk mencegah serangan pengulangan (*replay attack*).
 
 ```text
 expectedSignature = HMAC_SHA256(raw_request_body, secret_key=PAYMENTG_API_KEY)
+isSignatureValid  = (receivedSignature === expectedSignature)
+isTimestampValid  = abs(current_unix_time - payload.timestamp) <= 300
 ```
 
 #### 4. Tindakan Setelah Valid:
@@ -321,8 +328,13 @@ Route::post('/webhook/binance', function (Request $request) {
         return response()->json(['error' => 'Invalid signature'], 401);
     }
 
-    // 2. Baca Payload
+    // 2. Baca Payload & Proteksi Anti-Replay Timestamp (Maks 5 menit)
     $data = json_decode($rawPayload, true);
+    $payloadTimestamp = $data['timestamp'] ?? 0;
+    if (abs(time() - $payloadTimestamp) > 300) {
+        return response()->json(['error' => 'Webhook expired / replay detected'], 400);
+    }
+
     if (($data['event'] ?? '') === 'payment.success') {
         $invoiceId = $data['reference_id'];
         $binanceTxId = $data['binance_tx_id'];
@@ -367,8 +379,13 @@ app.post('/api/webhook/binance', express.raw({ type: 'application/json' }), asyn
         return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    // 2. Parse JSON
+    // 2. Parse JSON & Proteksi Anti-Replay Timestamp (Maks 5 menit)
     const payload = JSON.parse(rawBody);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSec - (payload.timestamp || 0)) > 300) {
+        return res.status(400).json({ error: 'Webhook expired / replay detected' });
+    }
+
     if (payload.event === 'payment.success') {
         const { reference_id, binance_tx_id, total_amount_str } = payload;
         
@@ -389,6 +406,7 @@ app.post('/api/webhook/binance', express.raw({ type: 'application/json' }), asyn
 # File: webhook.py
 import hmac
 import hashlib
+import time
 from fastapi import FastAPI, Request, Header, HTTPException
 
 app = FastAPI()
@@ -403,14 +421,19 @@ async def binance_webhook(request: Request, x_webhook_signature: str = Header(No
     if not hmac.compare_digest(expected_sig, x_webhook_signature or ""):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
-    # 2. Proses Event
+    # 2. Parse JSON & Proteksi Anti-Replay
     payload = await request.json()
+    now_sec = int(time.time())
+    if abs(now_sec - payload.get("timestamp", 0)) > 300:
+        raise HTTPException(status_code=400, detail="Webhook expired / replay detected")
+
+    # 3. Proses Event
     if payload.get("event") == "payment.success":
         ref_id = payload.get("reference_id")
         tx_id = payload.get("binance_tx_id")
         print(f"Pesanan {ref_id} telah lunas dengan Binance TxID {tx_id}")
         
-        # 3. Update database pesanan toko...
+        # Update database pesanan toko...
 
     return {"status": "received"}
 ```
@@ -428,7 +451,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -456,8 +481,16 @@ func BinanceWebhookHandler(c *gin.Context) {
 		Event       string `json:"event"`
 		ReferenceID string `json:"reference_id"`
 		BinanceTxID string `json:"binance_tx_id"`
+		Timestamp   int64  `json:"timestamp"`
 	}
 	_ = json.Unmarshal(rawBody, &payload)
+
+	// Anti-Replay: Tolak jika lebih lama dari 5 menit
+	now := time.Now().Unix()
+	if math.Abs(float64(now-payload.Timestamp)) > 300 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Webhook expired / replay detected"})
+		return
+	}
 
 	if payload.Event == "payment.success" {
 		// Update DB Toko menjadi PAID...

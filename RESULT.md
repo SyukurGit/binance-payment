@@ -137,13 +137,15 @@ Kedua database otomatis dikonfigurasi dalam mode **WAL (Write-Ahead Logging)** d
 
 Daftar toko/klien (`apps`) disinkronkan dwiarah secara otomatis saat server booting. Toko yang didaftarkan di dashboard otomatis memiliki API Key yang aktif di kedua mode sekaligus (*Zero-Code Switching*).
 
-### E. Webhook Engine, In-Flight Lock & Auto-Retry
+### E. Webhook Engine, In-Flight Lock & Anti-Replay Defense
 Ketika pesanan terkonfirmasi lunas (`PAID`):
 1. **Penguncian In-Flight:**
    Sebelum request HTTP ditembakkan ke URL toko, field `next_webhook_retry_at` di SQLite langsung dikunci ke `now + 60s`. Ini mencegah background worker mengambil pesanan yang sama saat koneksi jaringan sedang berlangsung, mengeliminasi risiko **webhook duplikat**.
 2. **HMAC-SHA256 Signature:**
    Setiap webhook dikirim dengan header `X-Webhook-Signature` yang dihasilkan dari hashing isi JSON payload menggunakan `api_key` toko.
-3. **Eksponensial Auto-Retry:**
+3. **Proteksi Anti-Replay (Timestamp Guard):**
+   Setiap payload memuat field `"timestamp"` (Unix epoch dalam detik) dan header `X-Webhook-Timestamp`. Tanda tangan HMAC-SHA256 mencakup timestamp ini, memungkinkan backend toko menolak webhook lama (> 5 menit) untuk memblokir **serangan replay**.
+4. **Eksponensial Auto-Retry:**
    Jika endpoint toko offline / error 500, worker otomatis menjadwalkan percobaan ulang:
    - Percobaan 1: Langsung saat pembayaran terdeteksi.
    - Percobaan 2: 15 detik kemudian.
@@ -153,6 +155,24 @@ Ketika pesanan terkonfirmasi lunas (`PAID`):
 
 ### F. Auto-Recovery QR Code On-the-Fly
 File PNG QR Code disimpan di folder `data/qr/` dan `data/sandbox/qr/`. Jika sewaktu-waktu file PNG terhapus secara tidak sengaja oleh pembersihan disk, pemanggilan endpoint gambar `GET /api/orders/:id/qr.png` akan **membuat ulang file PNG secara instan di latar belakang** tanpa mengembalikan HTTP 404.
+
+### G. Proteksi Anti-Brute-Force PIN & Account Lockout
+Mencegah serangan tebak PIN admin pada endpoint `POST /api/auth/pin`:
+- **Micro-Delay:** Penundaan 300ms pada setiap percobaan gagal untuk mencegah automated high-speed cracking.
+- **Lockout Otomatis:** Jika salah memasukkan PIN sebanyak 5 kali berturut-turut, IP penyerang otomatis dikunci selama **5 menit** dan server mengembalikan `HTTP 429 Too Many Requests`.
+- **Constant-Time Comparison:** Verifikasi PIN menggunakan fungsi `subtle.ConstantTimeCompare` untuk mencegah serangan celah waktu (*Timing Attacks*).
+
+### H. Validasi Batas Minimum Transfer Binance Pay (0.01 USDT)
+Binance Pay C2C transfer memiliki aturan batas minimum transaksi sebesar 0.01 USDT. Pembuatan order dengan `amount < 0.01` akan langsung ditolak dengan `HTTP 400 Bad Request` disertai pesan edukatif, mencegah situasi di mana pembeli tidak bisa mentransfer dana di aplikasi Binance.
+
+### I. Reverse-Proxy & SSL Termination Awareness (VPS / Cloudflare / Nginx)
+Saat di-hosting di VPS di balik Nginx, Caddy, atau Cloudflare, sistem secara cerdas membaca header `X-Forwarded-Proto` dan `X-Forwarded-Host`. URL gambar QR (`qr_url`) yang dikembalikan pada respon pembuatan order otomatis berupa URL absolut HTTPS yang valid (`https://subdomain.toko.com/api/orders/.../qr.png`), menjamin kompatibilitas *cross-domain* tanpa konflik protokol browser (Mixed Content).
+
+### J. Pencegahan Stored XSS (Contextual HTML Escaping)
+Seluruh data yang bersumber dari input pengguna luar (seperti `reference_id`, `payer_name` dari mutasi Binance, nama toko, dan webhook URL) disaring menggunakan fungsi `escapeHtml()` sebelum dirender ke DOM di Dashboard Admin maupun Sandbox Simulator. Hal ini mengeliminasi celah eksekusi skrip berbahaya (*Cross-Site Scripting*).
+
+### K. Zero-Downtime Graceful Shutdown
+Server mengimplementasikan penanganan sinyal `SIGINT` dan `SIGTERM` dengan batas waktu graceful shutdown 5 detik. Saat proses dimatikan atau di-restart pada server VPS, koneksi HTTP yang sedang berlangsung diselesaikan secara tuntas dan WAL SQLite di-flush secara aman tanpa ada mutasi atau webhook yang terpotong di tengah jalan.
 
 ---
 

@@ -2,12 +2,14 @@ package handler
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"paymentg-binance/internal/config"
 	"paymentg-binance/internal/database"
+	"paymentg-binance/internal/middleware"
 	"paymentg-binance/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -44,8 +46,20 @@ func (h *AdminHandler) HealthCheck(c *gin.Context) {
 	})
 }
 
-// VerifyPIN memverifikasi PIN admin dashboard
+// VerifyPIN memverifikasi PIN admin dashboard dengan proteksi brute-force
 func (h *AdminHandler) VerifyPIN(c *gin.Context) {
+	clientIP := c.ClientIP()
+
+	// 1. Cek apakah IP sedang terkunci akibat terlalu banyak salah PIN
+	allowed, waitSec := middleware.CheckPinRateLimit(clientIP)
+	if !allowed {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"success": false,
+			"error":   fmt.Sprintf("Terlalu banyak percobaan PIN salah. Akses dikunci sementara. Coba lagi dalam %d detik.", waitSec),
+		})
+		return
+	}
+
 	var body struct {
 		PIN string `json:"pin" binding:"required"`
 	}
@@ -54,10 +68,23 @@ func (h *AdminHandler) VerifyPIN(c *gin.Context) {
 		return
 	}
 
-	if body.PIN != h.cfg.AdminPIN {
+	// 2. Bandingkan PIN dengan constant-time comparison
+	if !middleware.SecureCompareString(strings.TrimSpace(body.PIN), strings.TrimSpace(h.cfg.AdminPIN)) {
+		lockSec := middleware.RecordPinFailure(clientIP)
+		time.Sleep(300 * time.Millisecond) // Tambah jeda mikro untuk memperlambat bot brute-force
+		if lockSec > 0 {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success": false,
+				"error":   fmt.Sprintf("PIN salah 5 kali berturut-turut. IP Anda dikunci selama %d detik.", lockSec),
+			})
+			return
+		}
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "PIN akses salah"})
 		return
 	}
+
+	// 3. Reset kegagalan setelah PIN benar
+	middleware.ResetPinAttempts(clientIP)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,

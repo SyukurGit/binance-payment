@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ type WebhookPayload struct {
 	TotalAmountStr string  `json:"total_amount_str"`
 	PaidAt         string  `json:"paid_at"`
 	BinanceTxID    string  `json:"binance_tx_id"`
+	Timestamp      int64   `json:"timestamp"`
 }
 
 var webhookHTTPClient = &http.Client{
@@ -80,6 +82,7 @@ func SendOrderWebhook(db *sql.DB, orderID string, isSandbox bool) {
 	}
 
 	now := time.Now().UnixMilli()
+	nowSec := time.Now().Unix()
 	// Kunci sementara jeda retry 60 detik ke depan agar background retry tidak mengambil order yang sama
 	_, _ = db.Exec("UPDATE orders SET next_webhook_retry_at = ? WHERE id = ?", now+60000, orderID)
 
@@ -96,6 +99,7 @@ func SendOrderWebhook(db *sql.DB, orderID string, isSandbox bool) {
 		TotalAmountStr: totalAmountStr,
 		PaidAt:         paidAtTime,
 		BinanceTxID:    binanceTxID,
+		Timestamp:      nowSec,
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -115,6 +119,7 @@ func SendOrderWebhook(db *sql.DB, orderID string, isSandbox bool) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Webhook-Event", "payment.success")
 	req.Header.Set("X-Webhook-Signature", signature)
+	req.Header.Set("X-Webhook-Timestamp", fmt.Sprintf("%d", nowSec))
 	req.Header.Set("User-Agent", "PaymentG-Binance-Webhook/1.0")
 
 	attempts++

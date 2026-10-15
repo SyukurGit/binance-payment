@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -55,6 +56,14 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	if req.Amount < 0.01 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Nominal pembayaran minimal adalah 0.01 USDT (batas transfer minimum Binance Pay)",
+		})
+		return
+	}
+
 	appID := c.GetString("app_id")
 	if appID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "App ID missing"})
@@ -77,7 +86,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		WHERE app_id = ? AND reference_id = ? AND status = 'PENDING' AND expires_at > ?
 	`, appID, req.ReferenceID, time.Now().UnixMilli()).Scan(&existingID)
 	if checkErr == nil && existingID != "" {
-		existingOrder, qErr := h.queryOrderData(existingID)
+		existingOrder, qErr := h.queryOrderData(c, existingID)
 		if qErr == nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": true,
@@ -111,6 +120,8 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	orderData.QRURL = h.resolveQRURL(c, orderData.OrderID)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"data":    orderData,
@@ -121,7 +132,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 func (h *OrderHandler) GetOrder(c *gin.Context) {
 	id := c.Param("id")
 
-	orderData, err := h.queryOrderData(id)
+	orderData, err := h.queryOrderData(c, id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Order tidak ditemukan"})
 		return
@@ -175,7 +186,7 @@ func (h *OrderHandler) CheckOrder(c *gin.Context) {
 		}
 	}
 
-	orderData, err := h.queryOrderData(id)
+	orderData, err := h.queryOrderData(c, id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Order tidak ditemukan"})
 		return
@@ -211,7 +222,22 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Order berhasil dibatalkan"})
 }
 
-func (h *OrderHandler) queryOrderData(orderID string) (*service.OrderData, error) {
+func (h *OrderHandler) resolveQRURL(c *gin.Context, orderID string) string {
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := c.Request.Host
+	if fwdHost := c.GetHeader("X-Forwarded-Host"); fwdHost != "" {
+		host = fwdHost
+	}
+	if host != "" {
+		return fmt.Sprintf("%s://%s%s/%s/qr.png", scheme, host, h.qrURLPrefix, orderID)
+	}
+	return fmt.Sprintf("%s/%s/qr.png", h.qrURLPrefix, orderID)
+}
+
+func (h *OrderHandler) queryOrderData(c *gin.Context, orderID string) (*service.OrderData, error) {
 	var (
 		refID          string
 		currency       string
@@ -272,7 +298,7 @@ func (h *OrderHandler) queryOrderData(orderID string) (*service.OrderData, error
 		BinanceTxID:        binanceTxID.String,
 		PayerName:          payerName.String,
 		PaidAt:             paidAtStr,
-		QRURL:              h.qrURLPrefix + "/" + orderID + "/qr.png",
+		QRURL:              h.resolveQRURL(c, orderID),
 		ExpiresAt:          time.UnixMilli(expiresAt).UTC().Format(time.RFC3339),
 		ExpiresInSeconds:   expiresInSec,
 	}, nil

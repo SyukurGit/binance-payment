@@ -12,7 +12,8 @@ import (
 )
 
 type PollerService struct {
-	mu              sync.Mutex
+	pollMu          sync.Mutex
+	stateMu         sync.RWMutex
 	db              *sql.DB
 	cfg             *config.Config
 	lastBinanceCall time.Time
@@ -94,13 +95,17 @@ func (p *PollerService) shouldBackgroundPoll() bool {
 	return countExpiredRecent > 0
 }
 
-// ExecutePoll mengeksekusi panggilan sinkron ke Binance API dengan proteksi mutex
+// ExecutePoll mengeksekusi panggilan sinkron ke Binance API dengan proteksi mutex serial
 func (p *PollerService) ExecutePoll() (int, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.pollMu.Lock()
+	defer p.pollMu.Unlock()
+
+	p.stateMu.RLock()
+	lastCall := p.lastBinanceCall
+	p.stateMu.RUnlock()
 
 	// Cegah panggilan ganda jika baru saja dipanggil kurang dari 5 detik lalu oleh goroutine lain
-	if !p.lastBinanceCall.IsZero() && time.Since(p.lastBinanceCall) < 5*time.Second {
+	if !lastCall.IsZero() && time.Since(lastCall) < 5*time.Second {
 		return 0, nil
 	}
 
@@ -109,8 +114,11 @@ func (p *PollerService) ExecutePoll() (int, error) {
 	baseURL := database.GetSystemConfig(p.db, "BINANCE_BASE_URL", p.cfg.BinanceBaseURL)
 
 	if apiKey == "" || secretKey == "" {
-		p.lastBinanceErr = "Binance API Key / Secret Key belum dikonfigurasi"
-		return 0, fmt.Errorf("%s", p.lastBinanceErr)
+		errMsg := "Binance API Key / Secret Key belum dikonfigurasi"
+		p.stateMu.Lock()
+		p.lastBinanceErr = errMsg
+		p.stateMu.Unlock()
+		return 0, fmt.Errorf("%s", errMsg)
 	}
 
 	// Cari startTime: MIN(created_at) - 60000 dari order aktif atau 24 jam terakhir
@@ -129,15 +137,21 @@ func (p *PollerService) ExecutePoll() (int, error) {
 	}
 
 	txs, err := FetchPayTransactions(baseURL, apiKey, secretKey, startTime)
-	p.lastBinanceCall = time.Now()
 
+	p.stateMu.Lock()
+	p.lastBinanceCall = time.Now()
 	if err != nil {
 		p.lastBinanceErr = err.Error()
+	} else {
+		p.lastBinanceErr = ""
+	}
+	p.stateMu.Unlock()
+
+	if err != nil {
 		log.Printf("[Poller] Binance API call gagal: %v", err)
 		return 0, err
 	}
 
-	p.lastBinanceErr = ""
 	matched, matchErr := MatchIncomingTransactions(p.db, txs)
 	if matchErr != nil {
 		log.Printf("[Poller] Pencocokan transaksi error: %v", matchErr)
@@ -146,11 +160,12 @@ func (p *PollerService) ExecutePoll() (int, error) {
 	return matched, nil
 }
 
-// CheckOrderNow menangani rate-gate on demand saat tombol 'Saya Sudah Bayar' diklik
+// CheckOrderNow menangani rate-gate on demand secara non-blocking saat tombol 'Saya Sudah Bayar' diklik
 func (p *PollerService) CheckOrderNow(orderID string) (int, error) {
 	// Cek status saat ini di SQLite
 	var status string
-	err := p.db.QueryRow("SELECT status FROM orders WHERE id = ?", orderID).Scan(&status)
+	var expiresAt int64
+	err := p.db.QueryRow("SELECT status, expires_at FROM orders WHERE id = ?", orderID).Scan(&status, &expiresAt)
 	if err != nil {
 		return 0, fmt.Errorf("order tidak ditemukan")
 	}
@@ -160,29 +175,35 @@ func (p *PollerService) CheckOrderNow(orderID string) (int, error) {
 		return 0, nil
 	}
 
-	p.mu.Lock()
-	elapsed := time.Since(p.lastBinanceCall)
-	minInterval := p.minInterval
-	p.mu.Unlock()
+	// Jika order sudah dibatalkan atau sudah expired lebih dari 10 menit, jangan poll ke Binance
+	now := time.Now().UnixMilli()
+	if status == "CANCELLED" || (status == "EXPIRED" && now-expiresAt > 600000) {
+		return 0, fmt.Errorf("order berstatus %s dan sudah tidak aktif", status)
+	}
 
+	p.stateMu.RLock()
+	lastCall := p.lastBinanceCall
+	minInterval := p.minInterval
+	p.stateMu.RUnlock()
+
+	elapsed := time.Since(lastCall)
 	if elapsed >= minInterval {
 		_, err := p.ExecutePoll()
 		return 0, err
 	}
 
+	// Jika rate limit Binance belum lewat, hitung sisa detik dan kembalikan langsung TANPA sleep
 	remaining := minInterval - elapsed
-	if remaining <= 4*time.Second {
-		time.Sleep(remaining)
-		_, err := p.ExecutePoll()
-		return 0, err
+	waitSec := int(remaining.Seconds())
+	if waitSec <= 0 {
+		waitSec = 1
 	}
 
-	// Jika remaining > 4 detik, kembalikan jeda waktu berikutnya tanpa panggil Binance
-	return int(remaining.Seconds()), nil
+	return waitSec, nil
 }
 
 func (p *PollerService) GetStatus() (time.Time, string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.stateMu.RLock()
+	defer p.stateMu.RUnlock()
 	return p.lastBinanceCall, p.lastBinanceErr
 }

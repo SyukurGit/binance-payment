@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"paymentg-binance/internal/config"
 	"paymentg-binance/internal/database"
@@ -39,6 +44,7 @@ func main() {
 	// 4. Setup Gin HTTP Router
 	gin.SetMode(cfg.GinMode)
 	r := gin.New()
+	_ = r.SetTrustedProxies(nil)
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORS())
 
@@ -123,7 +129,27 @@ func main() {
 	fmt.Printf("🔑 Default PIN     : %s\n", cfg.AdminPIN)
 	fmt.Println("==================================================================")
 
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Server berhenti: %v", err)
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
 	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server listener error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	log.Println("🛑 Menerima sinyal mematikan server... Menutup koneksi dengan aman...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server shutdown error: %v", err)
+	}
+	log.Println("✅ Server PaymentG berhasil dimatikan secara bersih (Graceful Shutdown selesai).")
 }
