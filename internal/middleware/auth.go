@@ -108,8 +108,8 @@ func RequireAdmin(adminKey string) gin.HandlerFunc {
 	}
 }
 
-// RequireAPIKey memvalidasi X-API-Key toko online terhadap database
-func RequireAPIKey(db *sql.DB) gin.HandlerFunc {
+// RequireAPIKey memvalidasi X-API-Key toko online terhadap database dan environment (Live vs Sandbox)
+func RequireAPIKey(db *sql.DB, isSandbox bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := strings.TrimSpace(c.GetHeader("X-API-Key"))
 		if apiKey == "" {
@@ -123,6 +123,22 @@ func RequireAPIKey(db *sql.DB) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"error":   "Unauthorized: Missing X-API-Key header",
+			})
+			return
+		}
+
+		// Validasi Isolasi Lingkungan (Cross-Environment Blocking)
+		if !isSandbox && strings.HasPrefix(apiKey, "ak_test_") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error":   "Unauthorized: Sandbox API Key cannot be used in Live environment",
+			})
+			return
+		}
+		if isSandbox && strings.HasPrefix(apiKey, "ak_live_") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error":   "Unauthorized: Live API Key cannot be used in Sandbox environment",
 			})
 			return
 		}
@@ -149,7 +165,7 @@ func RequireAPIKey(db *sql.DB) gin.HandlerFunc {
 }
 
 // OptionalAPIKey memvalidasi X-API-Key jika disertakan, namun tetap mengizinkan request jika tidak ada API key (untuk query status publik via Order ID)
-func OptionalAPIKey(db *sql.DB) gin.HandlerFunc {
+func OptionalAPIKey(db *sql.DB, isSandbox bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := strings.TrimSpace(c.GetHeader("X-API-Key"))
 		if apiKey == "" {
@@ -160,15 +176,19 @@ func OptionalAPIKey(db *sql.DB) gin.HandlerFunc {
 		}
 
 		if apiKey != "" {
-			var appID string
-			var appName string
-			var webhookURL string
-			err := db.QueryRow("SELECT id, name, webhook_url FROM apps WHERE api_key = ?", apiKey).Scan(&appID, &appName, &webhookURL)
-			if err == nil {
-				c.Set("app_id", appID)
-				c.Set("app_name", appName)
-				c.Set("app_webhook_url", webhookURL)
-				c.Set("app_api_key", apiKey)
+			if (!isSandbox && strings.HasPrefix(apiKey, "ak_test_")) || (isSandbox && strings.HasPrefix(apiKey, "ak_live_")) {
+				// Abaikan key jika berasal dari environment berlawanan
+			} else {
+				var appID string
+				var appName string
+				var webhookURL string
+				err := db.QueryRow("SELECT id, name, webhook_url FROM apps WHERE api_key = ?", apiKey).Scan(&appID, &appName, &webhookURL)
+				if err == nil {
+					c.Set("app_id", appID)
+					c.Set("app_name", appName)
+					c.Set("app_webhook_url", webhookURL)
+					c.Set("app_api_key", apiKey)
+				}
 			}
 		}
 

@@ -104,42 +104,7 @@ func InitDB() (*DBHub, error) {
 		SandboxDB: sandboxDB,
 	}
 
-	// Sinkronisasi awal daftar toko antara LiveDB dan SandboxDB
-	syncStartupApps(liveDB, sandboxDB)
-
 	return hub, nil
-}
-
-func syncStartupApps(liveDB, sandboxDB *sql.DB) {
-	// Sync dari Live ke Sandbox
-	if rows, err := liveDB.Query("SELECT id, name, api_key, webhook_url, created_at FROM apps"); err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var id, name, apiKey, webhookURL, createdAt string
-			if err := rows.Scan(&id, &name, &apiKey, &webhookURL, &createdAt); err == nil {
-				_, _ = sandboxDB.Exec(`
-					INSERT INTO apps (id, name, api_key, webhook_url, created_at)
-					VALUES (?, ?, ?, ?, ?)
-					ON CONFLICT(id) DO UPDATE SET name = excluded.name, api_key = excluded.api_key, webhook_url = excluded.webhook_url
-				`, id, name, apiKey, webhookURL, createdAt)
-			}
-		}
-	}
-
-	// Sync dari Sandbox ke Live
-	if rows, err := sandboxDB.Query("SELECT id, name, api_key, webhook_url, created_at FROM apps"); err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var id, name, apiKey, webhookURL, createdAt string
-			if err := rows.Scan(&id, &name, &apiKey, &webhookURL, &createdAt); err == nil {
-				_, _ = liveDB.Exec(`
-					INSERT INTO apps (id, name, api_key, webhook_url, created_at)
-					VALUES (?, ?, ?, ?, ?)
-					ON CONFLICT(id) DO UPDATE SET name = excluded.name, api_key = excluded.api_key, webhook_url = excluded.webhook_url
-				`, id, name, apiKey, webhookURL, createdAt)
-			}
-		}
-	}
 }
 
 func openSQLite(dbPath string) (*sql.DB, error) {
@@ -184,30 +149,24 @@ func SetSystemConfig(db *sql.DB, key, val string) error {
 	return err
 }
 
-// SyncAppCreate menyimpan app baru ke LiveDB dan SandboxDB sekaligus (Zero-Code Switching)
-func SyncAppCreate(hub *DBHub, id, name, apiKey, webhookURL string) error {
+// CreateApp menyimpan app baru ke database spesifik (LiveDB atau SandboxDB secara terisolasi)
+func CreateApp(db *sql.DB, id, name, apiKey, webhookURL string) error {
 	query := `
 		INSERT INTO apps (id, name, api_key, webhook_url) 
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name = excluded.name, api_key = excluded.api_key, webhook_url = excluded.webhook_url
 	`
-	if _, err := hub.LiveDB.Exec(query, id, name, apiKey, webhookURL); err != nil {
-		return fmt.Errorf("live db error: %w", err)
-	}
-	if _, err := hub.SandboxDB.Exec(query, id, name, apiKey, webhookURL); err != nil {
-		return fmt.Errorf("sandbox db error: %w", err)
+	if _, err := db.Exec(query, id, name, apiKey, webhookURL); err != nil {
+		return fmt.Errorf("db error: %w", err)
 	}
 	return nil
 }
 
-// SyncAppDelete menghapus app dari LiveDB dan SandboxDB sekaligus
-func SyncAppDelete(hub *DBHub, id string) error {
+// DeleteApp menghapus app dari database spesifik secara terisolasi
+func DeleteApp(db *sql.DB, id string) error {
 	query := `DELETE FROM apps WHERE id = ?`
-	if _, err := hub.LiveDB.Exec(query, id); err != nil {
-		return fmt.Errorf("live db error: %w", err)
-	}
-	if _, err := hub.SandboxDB.Exec(query, id); err != nil {
-		return fmt.Errorf("sandbox db error: %w", err)
+	if _, err := db.Exec(query, id); err != nil {
+		return fmt.Errorf("db error: %w", err)
 	}
 	return nil
 }

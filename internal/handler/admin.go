@@ -275,7 +275,7 @@ func (h *AdminHandler) GetApps(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": apps})
 }
 
-// CreateApp mendaftarkan toko baru ke LiveDB dan SandboxDB sekaligus
+// CreateApp mendaftarkan toko baru hanya ke LiveDB dengan prefix ak_live_
 func (h *AdminHandler) CreateApp(c *gin.Context) {
 	var body struct {
 		Name       string `json:"name" binding:"required"`
@@ -287,9 +287,9 @@ func (h *AdminHandler) CreateApp(c *gin.Context) {
 	}
 
 	appID := "app_" + service.RandomString(12)
-	apiKey := "ak_" + service.RandomString(32)
+	apiKey := "ak_live_" + service.RandomString(32)
 
-	if err := database.SyncAppCreate(h.hub, appID, body.Name, apiKey, body.WebhookURL); err != nil {
+	if err := database.CreateApp(h.hub.LiveDB, appID, body.Name, apiKey, body.WebhookURL); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
@@ -305,11 +305,11 @@ func (h *AdminHandler) CreateApp(c *gin.Context) {
 	})
 }
 
-// DeleteApp menghapus toko dari LiveDB dan SandboxDB
+// DeleteApp menghapus toko hanya dari LiveDB
 func (h *AdminHandler) DeleteApp(c *gin.Context) {
 	id := c.Param("id")
 
-	if err := database.SyncAppDelete(h.hub, id); err != nil {
+	if err := database.DeleteApp(h.hub.LiveDB, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
@@ -353,7 +353,7 @@ func (h *AdminHandler) GetBinanceConfig(c *gin.Context) {
 	})
 }
 
-// UpdateBinanceConfig memperbarui konfigurasi Binance Pay di database runtime
+// UpdateBinanceConfig memperbarui konfigurasi Binance Pay di database runtime LiveDB
 func (h *AdminHandler) UpdateBinanceConfig(c *gin.Context) {
 	var body struct {
 		BinancePayID       string `json:"binance_pay_id"`
@@ -369,15 +369,12 @@ func (h *AdminHandler) UpdateBinanceConfig(c *gin.Context) {
 
 	if strings.TrimSpace(body.BinancePayID) != "" {
 		_ = database.SetSystemConfig(h.hub.LiveDB, "BINANCE_PAY_ID", strings.TrimSpace(body.BinancePayID))
-		_ = database.SetSystemConfig(h.hub.SandboxDB, "BINANCE_PAY_ID", strings.TrimSpace(body.BinancePayID))
 	}
 	if strings.TrimSpace(body.BinanceAccountName) != "" {
 		_ = database.SetSystemConfig(h.hub.LiveDB, "BINANCE_ACCOUNT_NAME", strings.TrimSpace(body.BinanceAccountName))
-		_ = database.SetSystemConfig(h.hub.SandboxDB, "BINANCE_ACCOUNT_NAME", strings.TrimSpace(body.BinanceAccountName))
 	}
 	if strings.TrimSpace(body.BinanceUniQRURL) != "" {
 		_ = database.SetSystemConfig(h.hub.LiveDB, "BINANCE_UNI_QR_URL", strings.TrimSpace(body.BinanceUniQRURL))
-		_ = database.SetSystemConfig(h.hub.SandboxDB, "BINANCE_UNI_QR_URL", strings.TrimSpace(body.BinanceUniQRURL))
 	}
 	trimmedKey := strings.TrimSpace(body.BinanceAPIKey)
 	if trimmedKey != "" && !strings.Contains(trimmedKey, "****") {

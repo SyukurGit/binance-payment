@@ -24,21 +24,28 @@
 
 ## 1. Prinsip Kerja & Konfigurasi Lingkungan
 
-PaymentG menggunakan konsep **Zero-Code Switching**. Anda tidak perlu mengubah satu baris kode pun saat beralih dari pengujian (*Sandbox*) ke produksi (*Live*). Cukup ubah konfigurasi `.env` toko Anda:
+Binance Pay Gateway menerapkan **Strict Environment Isolation** demi keamanan maksimal dana dan pesanan toko Anda. Kredensial pengujian (*Sandbox*) dan produksi (*Live*) sepenuhnya terpisah:
 
 ```env
-# URL Gateway PaymentG (Ganti saat pindah mode)
-# Mode Sandbox (Simulator): http://localhost:3300/api/sandbox
-# Mode Live (Uang Nyata)   : http://localhost:3300/api (atau https://pay.domainanda.com/api)
-PAYMENTG_BASE_URL=http://localhost:3300/api/sandbox
+# ==============================================================
+# MODE PENGUJIAN (SANDBOX SIMULATOR)
+# ==============================================================
+BINANCE_PAY_BASE_URL=http://localhost:3300/api/sandbox
+# Format Key Sandbox wajib berawalan: ak_test_...
+BINANCE_PAY_API_KEY=ak_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# API Key Toko Anda (Didapat saat mendaftarkan toko di /dashboard/ atau /sandbox/)
-# Format: ak_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PAYMENTG_API_KEY=ak_kXzMwSPLcSoa72rSCuaH4rnHpFZiV4rf
+# ==============================================================
+# MODE PRODUKSI (LIVE OMSET NYATA)
+# ==============================================================
+# BINANCE_PAY_BASE_URL=http://localhost:3300/api
+# Format Key Live wajib berawalan: ak_live_...
+# BINANCE_PAY_API_KEY=ak_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 > [!IMPORTANT]
-> API Key toko Anda otomatis aktif dan valid di **kedua mode sekaligus** (Live & Sandbox).
+> - Mode Sandbox menggunakan API Key dengan prefix `ak_test_...` (didapatkan di `/sandbox/`).
+> - Mode Live menggunakan API Key dengan prefix `ak_live_...` (didapatkan di `/dashboard/`).
+> - Sistem otomatis menolak jika kunci Sandbox digunakan pada endpoint Live atau sebaliknya. Hal ini mencegah terjadinya kebocoran atau manipulasi pada transaksi nyata.
 
 ---
 

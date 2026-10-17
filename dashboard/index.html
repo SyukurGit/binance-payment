@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PaymentG — Binance Pay Dashboard</title>
+    <title>Binance Pay — Live Dashboard</title>
+    <!-- Favicon Resmi Binance -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23F3BA2F' d='M16 0L9.4 6.6l2.9 2.9L16 5.8l3.7 3.7 2.9-2.9L16 0zm-9.4 9.4L0 16l6.6 6.6 2.9-2.9L5.8 16l3.7-3.7-2.9-2.9zm18.8 0l-2.9 2.9 3.7 3.7-3.7 3.7 2.9 2.9L32 16l-6.6-6.6zM16 10.2l-5.8 5.8 5.8 5.8 5.8-5.8-5.8-5.8zM9.4 22.6l-2.9 2.9L16 32l6.6-6.6-2.9-2.9L16 26.2l-3.7-3.7-2.9.1z'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -17,7 +19,9 @@
                             card: '#181A20',
                             border: '#2B313A',
                             text: '#EAECEF',
-                            muted: '#848E9C'
+                            muted: '#848E9C',
+                            green: '#0ECB81',
+                            red: '#F6465D'
                         }
                     }
                 }
@@ -31,23 +35,23 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- Modal Login PIN -->
-    <div id="pinModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-binance-card border border-binance-border rounded-xl p-6 max-w-sm w-full shadow-2xl">
+    <!-- Modal Login PIN Admin -->
+    <div id="pinModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div class="text-center mb-6">
-                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-binance-yellow/10 text-binance-yellow mb-3">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-binance-yellow/10 text-binance-yellow mb-3 border border-binance-yellow/20">
+                    <svg class="w-8 h-8" viewBox="0 0 32 32"><path fill="#F3BA2F" d="M16 0L9.4 6.6l2.9 2.9L16 5.8l3.7 3.7 2.9-2.9L16 0zm-9.4 9.4L0 16l6.6 6.6 2.9-2.9L5.8 16l3.7-3.7-2.9-2.9zm18.8 0l-2.9 2.9 3.7 3.7-3.7 3.7 2.9 2.9L32 16l-6.6-6.6zM16 10.2l-5.8 5.8 5.8 5.8 5.8-5.8-5.8-5.8zM9.4 22.6l-2.9 2.9L16 32l6.6-6.6-2.9-2.9L16 26.2l-3.7-3.7-2.9.1z"/></svg>
                 </div>
-                <h2 class="text-xl font-bold text-white">PaymentG Binance</h2>
-                <p class="text-xs text-binance-muted mt-1">Masukkan PIN Admin untuk mengakses dashboard</p>
+                <h2 class="text-xl font-bold text-white">Binance Pay Admin</h2>
+                <p class="text-xs text-binance-muted mt-1">Masukkan PIN Admin untuk mengakses dashboard produksi (Live)</p>
             </div>
             <form id="pinForm" onsubmit="handlePinLogin(event)">
                 <div class="mb-4">
                     <input type="password" id="pinInput" placeholder="Masukkan PIN Admin" maxlength="10"
-                        class="w-full text-center text-2xl tracking-widest bg-binance-dark border border-binance-border rounded-lg py-3 text-white focus:outline-none focus:border-binance-yellow transition" autofocus>
-                    <p id="pinError" class="text-xs text-red-500 mt-2 text-center hidden"></p>
+                        class="w-full text-center text-2xl tracking-widest bg-binance-dark border border-binance-border rounded-xl py-3 text-white focus:outline-none focus:border-binance-yellow transition" autofocus>
+                    <p id="pinError" class="text-xs text-rose-500 mt-2 text-center hidden"></p>
                 </div>
-                <button type="submit" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold py-2.5 rounded-lg transition">
+                <button type="submit" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold py-2.5 rounded-xl transition shadow">
                     Buka Dashboard
                 </button>
             </form>
@@ -58,16 +62,18 @@
     <header class="border-b border-binance-border bg-binance-card sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-lg bg-binance-yellow flex items-center justify-center font-bold text-black text-sm">
-                    ⚡
+                <div class="w-9 h-9 rounded-xl bg-binance-yellow/10 border border-binance-yellow/30 flex items-center justify-center">
+                    <svg class="w-5 h-5" viewBox="0 0 32 32"><path fill="#F3BA2F" d="M16 0L9.4 6.6l2.9 2.9L16 5.8l3.7 3.7 2.9-2.9L16 0zm-9.4 9.4L0 16l6.6 6.6 2.9-2.9L5.8 16l3.7-3.7-2.9-2.9zm18.8 0l-2.9 2.9 3.7 3.7-3.7 3.7 2.9 2.9L32 16l-6.6-6.6zM16 10.2l-5.8 5.8 5.8 5.8 5.8-5.8-5.8-5.8zM9.4 22.6l-2.9 2.9L16 32l6.6-6.6-2.9-2.9L16 26.2l-3.7-3.7-2.9.1z"/></svg>
                 </div>
                 <div>
-                    <h1 class="font-bold text-white leading-tight">PaymentG <span class="text-binance-yellow text-xs px-2 py-0.5 rounded bg-binance-yellow/10 border border-binance-yellow/20 ml-1">Binance Pay Edition</span></h1>
-                    <p class="text-[11px] text-binance-muted">Personal SAPI Smart Poller & Auto-Webhook</p>
+                    <h1 class="font-bold text-white text-base leading-tight flex items-center gap-1.5">
+                        Binance Pay <span class="text-binance-yellow text-[10px] px-2 py-0.5 rounded-md bg-binance-yellow/10 border border-binance-yellow/20 font-semibold uppercase">Live Engine</span>
+                    </h1>
+                    <p class="text-[11px] text-binance-muted">Personal SAPI Smart Poller & Instant Webhook</p>
                 </div>
             </div>
             <div class="flex items-center space-x-3">
-                <a href="/sandbox/" target="_blank" class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition flex items-center gap-1.5">
+                <a href="/sandbox/" target="_blank" class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition flex items-center gap-1.5 font-medium">
                     <span>🧪</span> Buka Sandbox Simulator
                 </a>
                 <button onclick="handleLogout()" class="text-xs text-binance-muted hover:text-white px-3 py-1.5 rounded-lg border border-binance-border hover:bg-binance-dark transition">
@@ -77,12 +83,12 @@
         </div>
     </header>
 
-    <!-- Konten Dashboard -->
+    <!-- Konten Utama Dashboard -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
         <!-- 4 Kartu Statistik -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-binance-card border border-binance-border rounded-xl p-4">
-                <p class="text-xs text-binance-muted">Total Omset Sukses</p>
+                <p class="text-xs text-binance-muted">Total Omset Sukses (Live)</p>
                 <div class="flex items-baseline gap-1 mt-1">
                     <span id="statOmset" class="text-2xl font-bold text-binance-yellow">0.000</span>
                     <span class="text-xs text-binance-muted">USDT</span>
@@ -106,14 +112,17 @@
         <div class="flex border-b border-binance-border gap-6 text-sm mb-6">
             <button onclick="switchTab('tabOrders')" id="navOrders" class="pb-3 tab-active transition">Riwayat Transaksi Live</button>
             <button onclick="switchTab('tabApps')" id="navApps" class="pb-3 text-binance-muted hover:text-white transition">Kelola Toko (Apps)</button>
-            <button onclick="switchTab('tabConfig')" id="navConfig" class="pb-3 text-binance-muted hover:text-white transition">Pengaturan Binance Pay</button>
+            <button onclick="switchTab('tabConfig')" id="navConfig" class="pb-3 text-binance-muted hover:text-white transition">Pengaturan Binance SAPI</button>
             <button onclick="switchTab('tabUnmatched')" id="navUnmatched" class="pb-3 text-binance-muted hover:text-white transition">Mutasi Tak Dikenal</button>
         </div>
 
         <!-- TAB 1: Transaksi Live -->
         <div id="tabOrders">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-white text-sm">Daftar Transaksi Terbaru (Live)</h3>
+                <div>
+                    <h3 class="font-semibold text-white text-sm">Daftar Transaksi Terbaru (Live Produksi)</h3>
+                    <p class="text-xs text-binance-muted">Mutasi dicocokkan otomatis dari API resmi Binance Pay.</p>
+                </div>
                 <div class="flex items-center gap-2">
                     <select id="filterStatus" onchange="loadOrders()" class="bg-binance-dark border border-binance-border text-xs rounded-lg px-2.5 py-1.5 text-white">
                         <option value="">Semua Status</option>
@@ -147,39 +156,40 @@
             </div>
         </div>
 
-        <!-- TAB 2: Kelola Toko -->
+        <!-- TAB 2: Kelola Toko Live -->
         <div id="tabApps" class="hidden">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Form Tambah Toko -->
+                <!-- Form Tambah Toko Live -->
                 <div class="bg-binance-card border border-binance-border rounded-xl p-5 h-fit">
-                    <h3 class="font-semibold text-white text-sm mb-4">Daftarkan Toko Baru</h3>
+                    <h3 class="font-semibold text-white text-sm mb-4">+ Daftarkan Toko Live Baru</h3>
                     <form onsubmit="handleCreateApp(event)">
                         <div class="mb-3">
-                            <label class="block text-xs text-binance-muted mb-1">Nama Toko / Client</label>
+                            <label class="block text-xs text-binance-muted mb-1">Nama Toko E-Commerce</label>
                             <input type="text" id="appName" placeholder="Contoh: Toko Diamond Game" required
                                 class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
                         </div>
                         <div class="mb-4">
-                            <label class="block text-xs text-binance-muted mb-1">Webhook URL</label>
+                            <label class="block text-xs text-binance-muted mb-1">Webhook URL Produksi</label>
                             <input type="url" id="appWebhook" placeholder="https://tokomu.com/api/binance-webhook" required
                                 class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
                         </div>
-                        <button type="submit" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold text-xs py-2.5 rounded-lg transition">
-                            + Buat Toko & API Key
+                        <button type="submit" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold text-xs py-2.5 rounded-lg transition shadow">
+                            + Buat Toko & Kunci Live (ak_live_)
                         </button>
                     </form>
                 </div>
-                <!-- Daftar Toko -->
+                <!-- Daftar Toko Live -->
                 <div class="md:col-span-2 bg-binance-card border border-binance-border rounded-xl overflow-hidden">
-                    <div class="p-4 border-b border-binance-border">
-                        <h3 class="font-semibold text-white text-sm">Daftar Web Toko Terdaftar</h3>
+                    <div class="p-4 border-b border-binance-border flex items-center justify-between">
+                        <h3 class="font-semibold text-white text-sm">Daftar Toko Terdaftar (Live Environment)</h3>
+                        <span class="text-xs text-emerald-400 font-mono">Terisolasi 100% dari Sandbox</span>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead class="bg-binance-dark text-binance-muted border-b border-binance-border uppercase">
                                 <tr>
                                     <th class="py-3 px-4">Nama Toko</th>
-                                    <th class="py-3 px-4">API Key (X-API-Key)</th>
+                                    <th class="py-3 px-4">Live API Key (ak_live_)</th>
                                     <th class="py-3 px-4">Webhook URL</th>
                                     <th class="py-3 px-4 text-right">Aksi</th>
                                 </tr>
@@ -199,7 +209,7 @@
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-binance-border">
                     <div>
                         <h3 class="font-semibold text-white text-sm">Konfigurasi Akun & API Binance</h3>
-                        <p class="text-xs text-binance-muted">Pengaturan disimpan ke database runtime tanpa perlu restart server</p>
+                        <p class="text-xs text-binance-muted">Kredensial disimpan aman hanya di database Live (LiveDB)</p>
                     </div>
                     <button onclick="handleTestBinance()" id="btnTestBinance" class="bg-binance-dark hover:bg-binance-border border border-binance-yellow/40 text-binance-yellow text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                         <span>⚡</span> Tes Koneksi API
@@ -233,7 +243,7 @@
                         <input type="password" id="cfgSecretKey" placeholder="Biarkan kosong jika tidak diubah"
                             class="w-full bg-binance-dark border border-binance-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-binance-yellow">
                     </div>
-                    <button type="submit" class="bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold text-xs px-5 py-2.5 rounded-lg transition">
+                    <button type="submit" class="bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold text-xs px-5 py-2.5 rounded-lg transition shadow">
                         Simpan Pengaturan
                     </button>
                 </form>
@@ -272,22 +282,51 @@
         </div>
     </main>
 
-    <!-- Modal QR Code -->
+    <!-- Modal Preview Checkout (Sama Persis dengan Sandbox, Tanpa Tombol Simulasi) -->
+    <div id="checkoutPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-binance-card border border-binance-border rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+            <button onclick="closePreviewModal()" class="absolute top-4 right-4 text-binance-muted hover:text-white text-lg font-bold">&times;</button>
+            <div class="text-center mb-4">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-binance-yellow/10 border border-binance-yellow/20 text-binance-yellow text-xs font-semibold mb-2">
+                    <span id="prevPulse" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span id="prevStatusBadge">Menunggu Pembayaran</span>
+                </div>
+                <h3 class="text-2xl font-bold text-white tracking-tight" id="prevAmount">0.000 USDT</h3>
+                <p class="text-xs text-binance-muted mt-1">Scan QR Code via Aplikasi Binance Anda</p>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl mx-auto w-48 h-48 flex items-center justify-center mb-5 shadow-inner">
+                <img id="prevQrImg" src="" alt="QR Tagihan" class="w-full h-full object-contain">
+            </div>
+
+            <div class="space-y-2 mb-4 text-xs">
+                <button onclick="handlePreviewCheckStatus()" class="w-full bg-binance-yellow hover:bg-binance-yellowHover text-black font-semibold py-2.5 rounded-xl transition shadow">
+                    🔄 Cek Status Sekarang
+                </button>
+                <button onclick="closePreviewModal()" class="w-full bg-binance-dark border border-binance-border hover:bg-binance-border text-binance-muted hover:text-white py-2 rounded-xl transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal QR Sederhana -->
     <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-binance-card border border-binance-border rounded-xl p-6 max-w-xs w-full text-center">
+        <div class="bg-binance-card border border-binance-border rounded-2xl p-6 max-w-xs w-full text-center">
             <h4 class="text-sm font-bold text-white mb-2" id="qrModalTitle">QR Pembayaran</h4>
-            <div class="bg-white p-3 rounded-lg inline-block mb-3">
+            <div class="bg-white p-3 rounded-xl inline-block mb-3">
                 <img id="qrModalImg" src="" alt="QR" class="w-48 h-48 mx-auto">
             </div>
             <p class="text-xs text-binance-muted mb-4" id="qrModalAmount"></p>
-            <button onclick="closeQrModal()" class="w-full bg-binance-dark border border-binance-border hover:bg-binance-border text-white text-xs py-2 rounded-lg transition">
+            <button onclick="closeQrModal()" class="w-full bg-binance-dark border border-binance-border hover:bg-binance-border text-white text-xs py-2 rounded-xl transition">
                 Tutup
             </button>
         </div>
     </div>
 
     <script>
-        let adminKey = sessionStorage.getItem('pg_admin_key');
+        let adminKey = sessionStorage.getItem('binance_admin_key');
+        let activeOrderId = null;
 
         function escapeHtml(str) {
             if (str === null || str === undefined) return '';
@@ -297,15 +336,6 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
-        }
-
-        function checkAuth() {
-            if (adminKey) {
-                document.getElementById('pinModal').classList.add('hidden');
-                initDashboard();
-            } else {
-                document.getElementById('pinModal').classList.remove('hidden');
-            }
         }
 
         async function handlePinLogin(e) {
@@ -323,7 +353,7 @@
                 const json = await res.json();
                 if (json.success && json.admin_key) {
                     adminKey = json.admin_key;
-                    sessionStorage.setItem('pg_admin_key', adminKey);
+                    sessionStorage.setItem('binance_admin_key', adminKey);
                     document.getElementById('pinModal').classList.add('hidden');
                     initDashboard();
                 } else {
@@ -336,8 +366,17 @@
             }
         }
 
+        function checkAuth() {
+            if (!adminKey) {
+                document.getElementById('pinModal').classList.remove('hidden');
+            } else {
+                document.getElementById('pinModal').classList.add('hidden');
+                initDashboard();
+            }
+        }
+
         function handleLogout() {
-            sessionStorage.removeItem('pg_admin_key');
+            sessionStorage.removeItem('binance_admin_key');
             location.reload();
         }
 
@@ -365,7 +404,7 @@
                     loadStats();
                     loadOrders();
                 }
-            }, 5000);
+            }, 3000);
         }
 
         async function loadStats() {
@@ -383,29 +422,25 @@
         }
 
         async function loadOrders() {
-            const status = document.getElementById('filterStatus').value;
-            let url = '/api/orders';
-            if (status) url += '?status=' + status;
+            const statusFilter = document.getElementById('filterStatus').value;
+            const url = statusFilter ? `/api/orders?status=${statusFilter}` : '/api/orders';
 
             try {
                 const res = await fetch(url, { headers: { 'X-Admin-Key': adminKey } });
                 if (res.status === 401) { handleLogout(); return; }
                 const json = await res.json();
                 const tbody = document.getElementById('ordersTableBody');
+
                 if (!json.success || !json.data || json.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-binance-muted">Belum ada transaksi.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-binance-muted">Belum ada transaksi live.</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = json.data.map(o => {
-                    let badgeClass = "bg-amber-500/10 text-amber-400 border border-amber-500/30";
-                    if (o.status === 'PAID') badgeClass = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
-                    if (o.status === 'EXPIRED') badgeClass = "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30";
-                    if (o.status === 'CANCELLED') badgeClass = "bg-rose-500/10 text-rose-400 border border-rose-500/30";
-
-                    let webhookBadge = o.webhook_delivered ? 
-                        '<span class="text-emerald-400">✓ Sukses</span>' : 
-                        '<span class="text-binance-muted">-</span>';
+                    let isPending = o.status === 'PENDING';
+                    let badgeClass = isPending ? 
+                        "bg-amber-500/10 text-amber-400 border border-amber-500/30" : 
+                        (o.status === 'PAID' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/30");
 
                     const safeId = escapeHtml(o.id);
                     const safeRef = escapeHtml(o.reference_id);
@@ -419,6 +454,10 @@
                     const safeCreatedAt = escapeHtml(o.created_at);
                     const safePaidAt = escapeHtml(o.paid_at);
                     const safeQrUrl = escapeHtml(o.qr_url);
+
+                    let webhookBadge = o.webhook_delivered ? 
+                        '<span class="text-emerald-400 font-semibold text-[11px]">✓ Sukses</span>' : 
+                        '<span class="text-amber-400 text-[11px] font-medium">⏳ Menunggu</span>';
 
                     return `
                         <tr class="hover:bg-binance-dark/50 transition">
@@ -437,14 +476,17 @@
                                 <div class="text-white">${safeTxId}</div>
                                 <div class="text-binance-muted">${safePayer}</div>
                             </td>
-                            <td class="py-3 px-4 text-[11px]">${webhookBadge}</td>
+                            <td class="py-3 px-4">${webhookBadge}</td>
                             <td class="py-3 px-4 text-binance-muted text-[11px]">
                                 <div>Dibuat: ${safeCreatedAt}</div>
                                 ${o.paid_at !== '-' ? '<div class="text-emerald-400">Lunas: ' + safePaidAt + '</div>' : ''}
                             </td>
-                            <td class="py-3 px-4 text-right">
-                                <button onclick="openQrModal('${safeId}', '${safeQrUrl}', '${safeTotalStr} ${safeCurrency}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2.5 py-1 rounded transition text-binance-yellow">
-                                    Lihat QR
+                            <td class="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
+                                <button onclick="openPreviewModal('${safeId}', '${safeTotalStr} ${safeCurrency}', '${safeQrUrl}', '${safeStatus}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2.5 py-1 rounded-lg text-white transition">
+                                    👁️ Preview
+                                </button>
+                                <button onclick="openQrModal('${safeId}', '${safeQrUrl}', '${safeTotalStr} ${safeCurrency}')" class="text-[11px] bg-binance-dark hover:bg-binance-border border border-binance-border px-2.5 py-1 rounded-lg text-binance-yellow transition">
+                                    QR
                                 </button>
                             </td>
                         </tr>
@@ -460,7 +502,7 @@
                 const json = await res.json();
                 const tbody = document.getElementById('appsTableBody');
                 if (!json.success || !json.data || json.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-binance-muted">Belum ada toko yang didaftarkan.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-binance-muted">Belum ada toko live. Silakan buat toko baru.</td></tr>';
                     return;
                 }
 
@@ -473,7 +515,7 @@
                     <tr class="hover:bg-binance-dark/50">
                         <td class="py-3 px-4 font-semibold text-white">${safeName}</td>
                         <td class="py-3 px-4 font-mono text-[11px] text-binance-yellow">
-                            <span class="cursor-pointer select-all" onclick="navigator.clipboard.writeText('${safeApiKey}'); alert('API Key disalin!')" title="Klik untuk salin">${safeApiKey}</span>
+                            <span class="cursor-pointer select-all font-bold" onclick="copyText('${safeApiKey}')" title="Klik untuk salin">${safeApiKey}</span>
                         </td>
                         <td class="py-3 px-4 text-[11px] text-binance-muted truncate max-w-xs">${safeWebhook}</td>
                         <td class="py-3 px-4 text-right">
@@ -501,7 +543,7 @@
                     document.getElementById('appName').value = '';
                     document.getElementById('appWebhook').value = '';
                     loadApps();
-                    alert('Toko berhasil dibuat! API Key: ' + json.data.api_key);
+                    alert('Toko Live berhasil dibuat! API Key: ' + json.data.api_key);
                 } else {
                     alert('Gagal: ' + json.error);
                 }
@@ -511,7 +553,7 @@
         }
 
         async function handleDeleteApp(id) {
-            if (!confirm('Yakin ingin menghapus toko ini?')) return;
+            if (!confirm('Yakin ingin menghapus toko live ini?')) return;
             try {
                 const res = await fetch('/api/apps/' + id, { method: 'DELETE', headers: { 'X-Admin-Key': adminKey } });
                 const json = await res.json();
@@ -618,8 +660,42 @@
             } catch (e) {}
         }
 
+        // Preview Checkout Modal
+        function openPreviewModal(id, amount, qrUrl, status) {
+            activeOrderId = id;
+            document.getElementById('prevAmount').innerText = amount;
+            document.getElementById('prevQrImg').src = qrUrl;
+            const isPaid = status === 'PAID';
+            document.getElementById('prevStatusBadge').innerText = isPaid ? '✓ Sudah Lunas' : 'Menunggu Pembayaran';
+            document.getElementById('prevPulse').className = isPaid ? "w-2.5 h-2.5 rounded-full bg-emerald-400" : "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+            document.getElementById('checkoutPreviewModal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('checkoutPreviewModal').classList.add('hidden');
+            activeOrderId = null;
+        }
+
+        async function handlePreviewCheckStatus() {
+            if (!activeOrderId) return;
+            try {
+                const res = await fetch(`/api/orders/${activeOrderId}/check`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success && json.data && json.data.status === 'PAID') {
+                    alert('✅ Status Tagihan: LUNAS!');
+                    document.getElementById('prevStatusBadge').innerText = '✓ Sudah Lunas';
+                    document.getElementById('prevPulse').className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+                    loadOrders();
+                } else {
+                    alert('⏳ Status saat ini: ' + (json.data ? json.data.status : 'PENDING'));
+                }
+            } catch (e) {
+                alert('Gagal memeriksa status');
+            }
+        }
+
         function openQrModal(id, url, amount) {
-            document.getElementById('qrModalTitle').innerText = 'Tagihan ' + id;
+            document.getElementById('qrModalTitle').innerText = 'Tagihan Live ' + id;
             document.getElementById('qrModalImg').src = url;
             document.getElementById('qrModalAmount').innerText = 'Wajib Transfer: ' + amount;
             document.getElementById('qrModal').classList.remove('hidden');
@@ -629,7 +705,11 @@
             document.getElementById('qrModal').classList.add('hidden');
         }
 
-        // Jalankan saat halaman dibuka
+        function copyText(txt) {
+            navigator.clipboard.writeText(txt);
+            alert('Teks disalin: ' + txt);
+        }
+
         checkAuth();
     </script>
 </body>

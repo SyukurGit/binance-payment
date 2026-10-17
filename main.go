@@ -70,13 +70,13 @@ func main() {
 	// Client API - LIVE
 	liveAPI := r.Group("/api")
 	liveAPIRequired := liveAPI.Group("")
-	liveAPIRequired.Use(middleware.RequireAPIKey(dbHub.LiveDB))
+	liveAPIRequired.Use(middleware.RequireAPIKey(dbHub.LiveDB, false))
 	{
 		liveAPIRequired.POST("/orders", liveOrderHandler.CreateOrder)
 		liveAPIRequired.POST("/orders/:id/cancel", liveOrderHandler.CancelOrder)
 	}
 	liveAPIOptional := liveAPI.Group("")
-	liveAPIOptional.Use(middleware.OptionalAPIKey(dbHub.LiveDB))
+	liveAPIOptional.Use(middleware.OptionalAPIKey(dbHub.LiveDB, false))
 	{
 		liveAPIOptional.GET("/orders/:id", liveOrderHandler.GetOrder)
 		liveAPIOptional.POST("/orders/:id/check", liveOrderHandler.CheckOrder)
@@ -85,27 +85,31 @@ func main() {
 	// Client API - SANDBOX
 	sandboxAPI := r.Group("/api/sandbox")
 	sandboxAPIRequired := sandboxAPI.Group("")
-	sandboxAPIRequired.Use(middleware.RequireAPIKey(dbHub.SandboxDB))
+	sandboxAPIRequired.Use(middleware.RequireAPIKey(dbHub.SandboxDB, true))
 	{
 		sandboxAPIRequired.POST("/orders", sandboxOrderHandler.CreateOrder)
 		sandboxAPIRequired.POST("/orders/:id/cancel", sandboxOrderHandler.CancelOrder)
 	}
 	sandboxAPIOptional := sandboxAPI.Group("")
-	sandboxAPIOptional.Use(middleware.OptionalAPIKey(dbHub.SandboxDB))
+	sandboxAPIOptional.Use(middleware.OptionalAPIKey(dbHub.SandboxDB, true))
 	{
 		sandboxAPIOptional.GET("/orders/:id", sandboxOrderHandler.GetOrder)
 		sandboxAPIOptional.POST("/orders/:id/check", sandboxOrderHandler.CheckOrder)
 	}
 
-	// Sandbox Simulator UI Controls (Publik di UI Sandbox)
-	r.GET("/api/sandbox/orders", sandboxHandler.ListSandboxOrders)
-	r.POST("/api/sandbox/orders/:id/pay", sandboxHandler.SimulatePay)
-	r.POST("/api/sandbox/orders/create-demo", sandboxHandler.CreateDemoOrder)
-	r.GET("/api/sandbox/credentials", sandboxHandler.GetSandboxCredentials)
-	r.GET("/api/sandbox/apps", sandboxHandler.ListSandboxApps)
-	r.POST("/api/sandbox/apps", sandboxHandler.CreateSandboxApp)
-	r.DELETE("/api/sandbox/apps/:id", sandboxHandler.DeleteSandboxApp)
-	r.GET("/api/sandbox/stats", sandboxHandler.GetSandboxStats)
+	// Sandbox Simulator UI Controls (Terproteksi X-Admin-Key via Login PIN)
+	sandboxAdminAPI := r.Group("/api/sandbox")
+	sandboxAdminAPI.Use(middleware.RequireAdmin(cfg.AdminKey))
+	{
+		sandboxAdminAPI.GET("/orders", sandboxHandler.ListSandboxOrders)
+		sandboxAdminAPI.POST("/orders/:id/pay", sandboxHandler.SimulatePay)
+		sandboxAdminAPI.POST("/orders/create-demo", sandboxHandler.CreateDemoOrder)
+		sandboxAdminAPI.GET("/credentials", sandboxHandler.GetSandboxCredentials)
+		sandboxAdminAPI.GET("/apps", sandboxHandler.ListSandboxApps)
+		sandboxAdminAPI.POST("/apps", sandboxHandler.CreateSandboxApp)
+		sandboxAdminAPI.DELETE("/apps/:id", sandboxHandler.DeleteSandboxApp)
+		sandboxAdminAPI.GET("/stats", sandboxHandler.GetSandboxStats)
+	}
 
 	// Admin API (Wajib X-Admin-Key)
 	adminAPI := r.Group("/api")
@@ -123,7 +127,7 @@ func main() {
 	}
 
 	fmt.Println("==================================================================")
-	fmt.Printf("⚡ PaymentG — Binance Pay Edition Aktif di Port :%s\n", cfg.Port)
+	fmt.Printf("⚡ Binance Pay Gateway Engine Aktif di Port :%s\n", cfg.Port)
 	fmt.Printf("📊 Live Dashboard  : http://localhost:%s/dashboard/\n", cfg.Port)
 	fmt.Printf("🧪 Sandbox Simulator: http://localhost:%s/sandbox/\n", cfg.Port)
 	fmt.Printf("🔑 Default PIN     : %s\n", cfg.AdminPIN)

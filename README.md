@@ -1,6 +1,6 @@
-# ⚡ PaymentG — Binance Pay Edition
+# ⚡ Binance Pay Gateway Engine
 
-PaymentG (Binance Pay Edition) adalah *self-hosted crypto payment gateway* mandiri berkinerja tinggi yang mendeteksi pembayaran masuk secara otomatis dari akun personal **Binance Pay** menggunakan API resmi Binance (`GET /sapi/v1/pay/transactions`), mencocokkannya menggunakan **3-Digit Kode Unik Desimal (Milli-Units)**, dan mengirimkan notifikasi Webhook instan ke website e-commerce Anda.
+Binance Pay Gateway Engine adalah *self-hosted crypto payment gateway* mandiri berkinerja tinggi yang mendeteksi pembayaran masuk secara otomatis dari akun personal **Binance Pay** menggunakan API resmi Binance (`GET /sapi/v1/pay/transactions`), mencocokkannya menggunakan **3-Digit Kode Unik Desimal (Milli-Units)**, dan mengirimkan notifikasi Webhook instan ke website e-commerce Anda.
 
 Dilengkapi antarmuka modern untuk pemantauan transaksi riil di `/dashboard` dan simulator pengujian terisolasi penuh di `/sandbox`.
 
@@ -12,8 +12,7 @@ Dilengkapi antarmuka modern untuk pemantauan transaksi riil di `/dashboard` dan 
 - **Official Personal Binance Pay Client**: Menggunakan API Key personal (Read-Only) resmi dari Binance dengan tanda tangan HMAC-SHA256. Tanpa scraping browser, tanpa resiko akun diblokir.
 - **Smart Hold-Fire Poller & On-Demand Rate-Gate**: Mematuhi batas kuota IP Binance (Weight 3000) dengan menahan panggilan pada 30 detik pertama order dan merespons instan (< 1 detik) saat pembeli mengeklik tombol *"Saya Sudah Bayar"*.
 - **Atomic Milli-Units Math**: Menggunakan representasi integer (`amount x 1000`) untuk penambahan kode unik 1 s.d 999, bebas floating-point rounding error.
-- **Isolated Sandbox Environment (`/sandbox`)**: Pengujian pembayaran dengan database fisik terpisah (`data/sandbox/payment.db`) dan simulator bayar 1-klik tanpa menyentuh uang asli.
-- **Zero-Code Switching**: Toko online cukup mengganti API URL dari mode Sandbox ke Live tanpa mengubah kode maupun API key sama sekali.
+- **Strict Environment Isolation**: Pemisahan 100% database dan kredensial antara Mode Live (`ak_live_...`) dan Sandbox Simulator (`ak_test_...`). Key test otomatis ditolak di Live dan sebaliknya, mencegah risiko manipulasi order real atau kebocoran data.
 - **Direct JSON Webhook**: Notifikasi pembayaran otomatis dikirim ke webhook toko dengan payload JSON bersih dan signature keamanan HMAC-SHA256.
 
 ---

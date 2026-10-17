@@ -101,8 +101,8 @@ func (h *SandboxHandler) CreateDemoOrder(c *gin.Context) {
 	if err != nil || appID == "" {
 		// Buat demo app otomatis jika belum ada toko
 		appID = "app_demo_sandbox"
-		apiKey := "ak_" + service.RandomString(32)
-		_ = database.SyncAppCreate(h.hub, appID, "Toko Demo Sandbox", apiKey, "https://webhook.site/placeholder-testing")
+		apiKey := "ak_test_" + service.RandomString(32)
+		_ = database.CreateApp(h.db, appID, "Toko Demo Sandbox", apiKey, "https://webhook.site/placeholder-testing")
 	}
 
 	refID := fmt.Sprintf("DEMO-%d-%s", time.Now().Unix()%100000, service.RandomString(4))
@@ -221,12 +221,12 @@ func (h *SandboxHandler) GetSandboxCredentials(c *gin.Context) {
 	var id, name, apiKey, webhookURL string
 	err := h.db.QueryRow("SELECT id, name, api_key, webhook_url FROM apps ORDER BY created_at ASC LIMIT 1").Scan(&id, &name, &apiKey, &webhookURL)
 	if err != nil || apiKey == "" {
-		// Buat app default otomatis jika belum ada toko
+		// Buat app default otomatis jika belum ada toko di sandbox
 		id = "app_demo_sandbox"
 		name = "Toko Testing Sandbox"
-		apiKey = "ak_" + service.RandomString(32)
-		webhookURL = "https://webhook.site/test-sandbox-paymentg"
-		_ = database.SyncAppCreate(h.hub, id, name, apiKey, webhookURL)
+		apiKey = "ak_test_" + service.RandomString(32)
+		webhookURL = "https://webhook.site/test-sandbox-binance"
+		_ = database.CreateApp(h.db, id, name, apiKey, webhookURL)
 	}
 
 	scheme := "http"
@@ -284,7 +284,7 @@ func (h *SandboxHandler) ListSandboxApps(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": apps})
 }
 
-// CreateSandboxApp membuat toko baru dari UI Sandbox
+// CreateSandboxApp membuat toko baru dari UI Sandbox (hanya ke SandboxDB)
 func (h *SandboxHandler) CreateSandboxApp(c *gin.Context) {
 	var body struct {
 		Name       string `json:"name" binding:"required"`
@@ -296,9 +296,9 @@ func (h *SandboxHandler) CreateSandboxApp(c *gin.Context) {
 	}
 
 	appID := "app_" + service.RandomString(12)
-	apiKey := "ak_" + service.RandomString(32)
+	apiKey := "ak_test_" + service.RandomString(32)
 
-	if err := database.SyncAppCreate(h.hub, appID, body.Name, apiKey, body.WebhookURL); err != nil {
+	if err := database.CreateApp(h.db, appID, body.Name, apiKey, body.WebhookURL); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
@@ -314,10 +314,10 @@ func (h *SandboxHandler) CreateSandboxApp(c *gin.Context) {
 	})
 }
 
-// DeleteSandboxApp menghapus toko dari UI Sandbox
+// DeleteSandboxApp menghapus toko dari UI Sandbox (hanya dari SandboxDB)
 func (h *SandboxHandler) DeleteSandboxApp(c *gin.Context) {
 	id := c.Param("id")
-	if err := database.SyncAppDelete(h.hub, id); err != nil {
+	if err := database.DeleteApp(h.db, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
