@@ -143,9 +143,13 @@ func CreateOrder(
 	cooldownUntilMillis := expiresAtMillis + int64(cooldownMinutes*60000)
 
 	qrPath := fmt.Sprintf("%s/%s.png", strings.TrimRight(qrBaseDir, "/"), orderID)
-	qrContent := uniQRURL
+	qrContent := strings.TrimSpace(uniQRURL)
+	// Abaikan string dummy contoh/placeholder
+	if strings.Contains(strings.ToLower(qrContent), "example") {
+		qrContent = ""
+	}
 	if qrContent == "" {
-		qrContent = "https://app.binance.com/uni-qr/pay_" + payID
+		qrContent = "https://app.binance.com/uni-qr/NwksZSvZ"
 	}
 
 	if err := GenerateQRCode(qrContent, qrPath); err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"paymentg-binance/internal/config"
@@ -156,11 +157,13 @@ func (h *OrderHandler) GetQRCode(c *gin.Context) {
 	}
 
 	if _, err := os.Stat(qrPath); os.IsNotExist(err) {
-		uniQR := database.GetSystemConfig(h.db, "BINANCE_UNI_QR_URL", h.cfg.BinanceUniQRURL)
-		payID := database.GetSystemConfig(h.db, "BINANCE_PAY_ID", h.cfg.BinancePayID)
+		uniQR := strings.TrimSpace(database.GetSystemConfig(h.db, "BINANCE_UNI_QR_URL", h.cfg.BinanceUniQRURL))
+		if strings.Contains(strings.ToLower(uniQR), "example") {
+			uniQR = ""
+		}
 		qrContent := uniQR
 		if qrContent == "" {
-			qrContent = "https://app.binance.com/uni-qr/pay_" + payID
+			qrContent = "https://app.binance.com/uni-qr/NwksZSvZ"
 		}
 		if genErr := service.GenerateQRCode(qrContent, qrPath); genErr != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "File QR code tidak ditemukan"})
@@ -223,6 +226,9 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 }
 
 func (h *OrderHandler) resolveQRURL(c *gin.Context, orderID string) string {
+	if h.cfg != nil && h.cfg.AppURL != "" {
+		return fmt.Sprintf("%s%s/%s/qr.png", strings.TrimRight(h.cfg.AppURL, "/"), h.qrURLPrefix, orderID)
+	}
 	scheme := "http"
 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 		scheme = "https"
